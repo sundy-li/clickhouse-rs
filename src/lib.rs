@@ -18,10 +18,6 @@ pub mod types;
 #[macro_use]
 extern crate bitflags;
 
-pub type SendableBlockStream =
-    std::pin::Pin<Box<dyn futures::stream::Stream<Item = Result<Block>> + Sync + Send>>;
-
-#[async_trait]
 pub trait ClickHouseSession<W: Write> {
     fn execute_query(&self, query: &str, stage: u64, writer: &mut ResultWriter) -> Result<()>;
 
@@ -114,7 +110,6 @@ impl<S: ClickHouseSession<W>, R: Read, W: Write> ClickHouseServer<S, R, W> {
             // reset state
             self.query_state = Default::default();
             let packet_type: u64 = self.reader.read_uvarint()?;
-            println!("GOT PACKET {:?}", packet_type);
             match packet_type {
                 protocols::CLIENT_PING => {
                     let mut encoder = Encoder::new();
@@ -124,25 +119,33 @@ impl<S: ClickHouseSession<W>, R: Read, W: Write> ClickHouseServer<S, R, W> {
                 }
                 protocols::CLIENT_CANCEL => continue,
                 protocols::CLIENT_QUERY => self.process_query()?,
+                protocols::CLIENT_DATA => self.process_data()?,
+                protocols::CLIENT_HELLO => {
+                    let _ = self.receive_hello()?;
+                    return Err(format!("Unexpected packet Hello received from client").into())
+                },
+
                 _ => return Err(format!("Unhandle packet type:{}", packet_type).into()),
             }
         }
     }
 
-    fn process_hello(&mut self) -> Result<()> {
-        let mut encoder = Encoder::new();
+    fn receive_hello(&mut self) -> Result<(HelloRequest)> {
         let packet_type: u64 = self.reader.read_uvarint()?;
         if packet_type != protocols::SERVER_HELLO {
             // comes from http
             if packet_type == 'G' as u64 || packet_type == 'P' as u64 {
+                let mut encoder = Encoder::new();
                 encoder.string("HTTP/1.0 400 Bad Request\r\n\r\n");
                 encoder.write_to(&mut self.writer)?;
                 return Err("HTTP request wrong port, it's TCP port".into());
             }
         }
+        HelloRequest::read_from(&mut self.reader)
+    }
 
-        let request = HelloRequest::read_from(&mut self.reader)?;
-
+    fn process_hello(&mut self) -> Result<()> {
+        let request = self.receive_hello()?;
         let response = HelloResponse {
             dbms_name: self.session.dbms_name().to_string(),
             dbms_version_major: self.session.dbms_version_major(),
@@ -153,6 +156,7 @@ impl<S: ClickHouseSession<W>, R: Read, W: Write> ClickHouseServer<S, R, W> {
             dbms_version_patch: self.session.dbms_version_patch(),
         };
 
+        let mut encoder = Encoder::new();
         response.encode(&mut encoder, request.client_revision)?;
         encoder.write_to(&mut self.writer)?;
 
@@ -161,14 +165,27 @@ impl<S: ClickHouseSession<W>, R: Read, W: Write> ClickHouseServer<S, R, W> {
     }
 
     fn process_query(&mut self) -> Result<()> {
-        let query_protol =
+        let query_protocol =
             QueryProtocol::read_from(&mut self.reader, &self.hello_request, &mut self.query_state)?;
 
         let mut encoder = Encoder::new();
-        let mut result_writer = ResultWriter::new(&mut encoder, false);
+
+        self.query_state.query = query_protocol.query;
+        self.query_state.stage = query_protocol.stage;
+        self.query_state.compression = query_protocol.compression;
+
+        let mut result_writer = ResultWriter::new(&mut encoder, self.query_state.compression > 0);
+
         self.session
             .execute_query(&self.query_state.query, self.query_state.stage, &mut result_writer)?;
 
+        encoder.uvarint(SERVER_END_OF_STREAM);
+        encoder.write_to(&mut self.writer)?;
+        Ok(())
+    }
+
+    fn process_data(&mut self) -> Result<()> {
+        let mut encoder = Encoder::new();
         encoder.uvarint(SERVER_END_OF_STREAM);
         encoder.write_to(&mut self.writer)?;
         Ok(())

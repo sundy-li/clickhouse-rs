@@ -96,11 +96,11 @@ impl QueryClientInfo {
 
 #[derive(Default, Debug)]
 pub struct QueryProtocol {
-    query_id: String,
-    client_info: QueryClientInfo,
-    stage: u64,
-    compression: u64,
-    query: String,
+    pub(crate) query_id: String,
+    pub(crate) client_info: QueryClientInfo,
+    pub(crate) stage: u64,
+    pub(crate) compression: u64,
+    pub(crate) query: String,
 }
 
 impl QueryProtocol {
