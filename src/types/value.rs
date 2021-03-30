@@ -11,7 +11,7 @@ use chrono_tz::Tz;
 use crate::types::{
     column::{datetime64::to_datetime, Either},
     decimal::{Decimal, NoBits},
-    DateConverter, Enum16, Enum8, SqlType, DateTimeType, HasSqlType
+    DateConverter, DateTimeType, Enum16, Enum8, HasSqlType, SqlType,
 };
 
 use uuid::Uuid;
@@ -169,7 +169,7 @@ impl fmt::Display for Value {
             Value::Decimal(v) => fmt::Display::fmt(v, f),
             Value::Ipv4(v) => {
                 write!(f, "{}", decode_ipv4(v))
-            },
+            }
             Value::Ipv6(v) => {
                 write!(f, "{}", decode_ipv6(v))
             }
@@ -221,7 +221,7 @@ impl convert::From<Value> for SqlType {
             Value::DateTime64(_, params) => {
                 let (precision, tz) = params;
                 SqlType::DateTime(DateTimeType::DateTime64(precision, tz))
-            },
+            }
         }
     }
 }
@@ -627,7 +627,9 @@ mod test {
         );
         assert_eq!(
             Value::from(Some(UTC.ymd(2019, 1, 1).and_hms(0, 0, 0))),
-            Value::Nullable(Either::Right(Value::DateTime(1_546_300_800, Tz::UTC).into()))
+            Value::Nullable(Either::Right(
+                Value::DateTime(1_546_300_800, Tz::UTC).into()
+            ))
         );
     }
 }

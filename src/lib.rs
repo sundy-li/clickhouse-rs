@@ -4,10 +4,9 @@ use std::net;
 use crate::binary::{Encoder, ReadEx};
 use crate::types::{Block, ResultWriter};
 
-use errors::{Error, Result, ServerError};
-use futures::StreamExt;
+use chrono_tz::Tz;
+use errors::Result;
 use protocols::{HelloRequest, HelloResponse, QueryProtocol, SERVER_END_OF_STREAM};
-use async_trait::async_trait;
 
 mod binary;
 pub mod error_codes;
@@ -39,7 +38,7 @@ pub trait ClickHouseSession<W: Write> {
     }
 
     fn timezone(&self) -> &str {
-        "Asia/Shanghai"
+        "UTC"
     }
 
     fn server_display_name(&self) -> &str {
@@ -109,7 +108,24 @@ impl<S: ClickHouseSession<W>, R: Read, W: Write> ClickHouseServer<S, R, W> {
         loop {
             // reset state
             self.query_state = Default::default();
-            let packet_type: u64 = self.reader.read_uvarint()?;
+            let packet_type_r: Result<u64> = self.reader.read_uvarint();
+            let packet_type: u64;
+
+            match packet_type_r {
+                Err(e) => {
+                    // TODO async io
+                    if e.is_would_block() {
+                        continue;
+                    } else {
+                        return Err(e);
+                    }
+                }
+                Ok(v) => {
+                    packet_type = v;
+                }
+            }
+
+            println!("read packet_type {:?}", packet_type);
             match packet_type {
                 protocols::CLIENT_PING => {
                     let mut encoder = Encoder::new();
@@ -119,18 +135,20 @@ impl<S: ClickHouseSession<W>, R: Read, W: Write> ClickHouseServer<S, R, W> {
                 }
                 protocols::CLIENT_CANCEL => continue,
                 protocols::CLIENT_QUERY => self.process_query()?,
-                protocols::CLIENT_DATA => self.process_data()?,
+                protocols::CLIENT_DATA | protocols::CLIENT_SCALAR => {
+                    self.process_data(packet_type == protocols::CLIENT_SCALAR)?
+                }
                 protocols::CLIENT_HELLO => {
                     let _ = self.receive_hello()?;
-                    return Err(format!("Unexpected packet Hello received from client").into())
-                },
+                    return Err("Unexpected packet Hello received from client".to_string().into());
+                }
 
                 _ => return Err(format!("Unhandle packet type:{}", packet_type).into()),
             }
         }
     }
 
-    fn receive_hello(&mut self) -> Result<(HelloRequest)> {
+    fn receive_hello(&mut self) -> Result<HelloRequest> {
         let packet_type: u64 = self.reader.read_uvarint()?;
         if packet_type != protocols::SERVER_HELLO {
             // comes from http
@@ -176,18 +194,22 @@ impl<S: ClickHouseSession<W>, R: Read, W: Write> ClickHouseServer<S, R, W> {
 
         let mut result_writer = ResultWriter::new(&mut encoder, self.query_state.compression > 0);
 
-        self.session
-            .execute_query(&self.query_state.query, self.query_state.stage, &mut result_writer)?;
+        self.session.execute_query(
+            &self.query_state.query,
+            self.query_state.stage,
+            &mut result_writer,
+        )?;
 
         encoder.uvarint(SERVER_END_OF_STREAM);
         encoder.write_to(&mut self.writer)?;
         Ok(())
     }
 
-    fn process_data(&mut self) -> Result<()> {
-        let mut encoder = Encoder::new();
-        encoder.uvarint(SERVER_END_OF_STREAM);
-        encoder.write_to(&mut self.writer)?;
+    fn process_data(&mut self, scalar: bool) -> Result<()> {
+        let _ = self.reader.read_string()?;
+        let tz: Tz = self.session.timezone().parse()?;
+        let _ = Block::load(&mut self.reader, tz, false)?;
+        // TODO for insert
         Ok(())
     }
 }

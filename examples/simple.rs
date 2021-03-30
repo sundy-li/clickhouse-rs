@@ -1,9 +1,9 @@
 use std::{io::Write, net, thread};
 
+use clickhouse_srv::types::ResultWriter;
 use clickhouse_srv::{errors::Result, types::Block, ClickHouseServer};
 use tokio::sync::mpsc;
 use tokio_stream::wrappers::ReceiverStream;
-use clickhouse_srv::types::ResultWriter;
 
 extern crate clickhouse_srv;
 
@@ -18,7 +18,7 @@ fn main() {
             let s = ClickHouseServer::run_on_tcp(Session {}, s);
             match s {
                 Err(e) => println!("{}", e.to_string()),
-                _ => {},
+                _ => {}
             }
         }));
     }
@@ -32,6 +32,7 @@ struct Session {}
 
 impl<W: Write> clickhouse_srv::ClickHouseSession<W> for Session {
     fn execute_query(&self, query: &str, stage: u64, writer: &mut ResultWriter) -> Result<()> {
+        println!("Receive query {}", query);
         let block = Block::new().column("abc", (1i32..1000).collect::<Vec<i32>>());
         writer.write_block(block)?;
         writer.finalize()?;

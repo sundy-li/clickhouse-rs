@@ -16,9 +16,9 @@ pub use self::{
     from_sql::{FromSql, FromSqlResult},
     options::Options,
     query::Query,
+    result_writer::ResultWriter,
     value::Value,
     value_ref::ValueRef,
-    result_writer::ResultWriter
 };
 
 pub(crate) use self::{
@@ -28,7 +28,6 @@ pub(crate) use self::{
     stat_buffer::StatBuffer,
     unmarshal::Unmarshal,
 };
-
 
 pub(crate) mod column;
 mod marshal;

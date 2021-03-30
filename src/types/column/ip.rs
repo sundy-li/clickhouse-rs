@@ -9,7 +9,7 @@ use crate::{
     errors::Result,
     types::{
         column::{column_data::BoxColumnData, nullable::NullableColumnData, ColumnWrapper},
-        SqlType, Value, ValueRef
+        SqlType, Value, ValueRef,
     },
 };
 

@@ -7,7 +7,7 @@ use crate::{
         column::{
             array::ArrayColumnData, nullable::NullableColumnData, ArcColumnWrapper, ColumnWrapper,
         },
-        Marshal, SqlType, StatBuffer, Unmarshal, Value, ValueRef, HasSqlType,
+        HasSqlType, Marshal, SqlType, StatBuffer, Unmarshal, Value, ValueRef,
     },
 };
 

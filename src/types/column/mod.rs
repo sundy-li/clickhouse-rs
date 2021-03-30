@@ -19,8 +19,8 @@ use crate::{
             decimal::{DecimalAdapter, NullableDecimalAdapter},
             fixed_string::{FixedStringAdapter, NullableFixedStringAdapter},
             ip::{IpColumnData, Ipv4, Ipv6},
-            string::StringAdapter,
             iter::Iterable,
+            string::StringAdapter,
         },
         decimal::NoBits,
         SqlType, Value, ValueRef,
@@ -32,12 +32,12 @@ pub(crate) use self::{column_data::ColumnData, string_pool::StringPool};
 pub use self::{concat::ConcatColumnData, numeric::VectorColumnData};
 
 mod array;
+pub(crate) mod chrono_datetime;
 mod chunk;
 mod column_data;
 mod concat;
 mod date;
 pub(crate) mod datetime64;
-pub(crate) mod chrono_datetime;
 mod decimal;
 mod enums;
 mod factory;
@@ -192,7 +192,8 @@ impl<K: ColumnType> Column<K> {
     pub(crate) fn read<R: ReadEx>(reader: &mut R, size: usize, tz: Tz) -> Result<Column<K>> {
         let name = reader.read_string()?;
         let type_name = reader.read_string()?;
-        let data = <dyn ColumnData>::load_data::<ArcColumnWrapper, _>(reader, &type_name, size, tz)?;
+        let data =
+            <dyn ColumnData>::load_data::<ArcColumnWrapper, _>(reader, &type_name, size, tz)?;
         let column = Self {
             name,
             data,
@@ -435,7 +436,7 @@ impl<K: ColumnType> Column<K> {
                         dst: dst_type.to_string(),
                     }))
                 }
-            },
+            }
         }
     }
 

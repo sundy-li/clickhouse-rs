@@ -5,10 +5,11 @@ use crate::{
     binary::{Encoder, ReadEx},
     errors::Result,
     types::{
-        SqlType, DateTimeType, Value, ValueRef,
         column::{
-            column_data::{BoxColumnData, ColumnData}, list::List,
-        }
+            column_data::{BoxColumnData, ColumnData},
+            list::List,
+        },
+        DateTimeType, SqlType, Value, ValueRef,
     },
 };
 

@@ -4,7 +4,10 @@ use crate::{
     binary::{Encoder, ReadEx},
     errors::Result,
     types::{
-        column::{column_data::{BoxColumnData, ArcColumnData}, Either, ArcColumnWrapper, ColumnData},
+        column::{
+            column_data::{ArcColumnData, BoxColumnData},
+            ArcColumnWrapper, ColumnData, Either,
+        },
         SqlType, Value, ValueRef,
     },
 };
@@ -25,7 +28,8 @@ impl NullableColumnData {
     ) -> Result<Self> {
         let mut nulls = vec![0; size];
         reader.read_bytes(nulls.as_mut())?;
-        let inner = <dyn ColumnData>::load_data::<ArcColumnWrapper, _>(reader, type_name, size, tz)?;
+        let inner =
+            <dyn ColumnData>::load_data::<ArcColumnWrapper, _>(reader, type_name, size, tz)?;
         Ok(NullableColumnData { inner, nulls })
     }
 }
@@ -100,8 +104,8 @@ impl ColumnData for NullableColumnData {
             if let Some(inner) = self.inner.cast_to(&self.inner, inner_target) {
                 return Some(Arc::new(NullableColumnData {
                     inner,
-                    nulls: self.nulls.clone()
-                }))
+                    nulls: self.nulls.clone(),
+                }));
             }
         }
         None

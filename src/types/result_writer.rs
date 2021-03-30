@@ -1,6 +1,6 @@
 use crate::binary::Encoder;
-use crate::types::Block;
 use crate::errors::Result;
+use crate::types::Block;
 
 pub struct ResultWriter<'a> {
     encoder: &'a mut Encoder,
@@ -8,11 +8,8 @@ pub struct ResultWriter<'a> {
 }
 
 impl<'a> ResultWriter<'a> {
-    pub(crate) fn new(encoder : &'a mut Encoder, compress: bool) -> Self {
-        Self {
-            encoder,
-            compress,
-        }
+    pub(crate) fn new(encoder: &'a mut Encoder, compress: bool) -> Self {
+        Self { encoder, compress }
     }
 
     pub fn write_block(&mut self, block: Block) -> Result<()> {
@@ -21,7 +18,7 @@ impl<'a> ResultWriter<'a> {
     }
 
     pub fn finalize(&mut self) -> Result<()> {
-        Block::new().send_server_data(&mut self.encoder, self.compress);
+        // Block::new().send_server_data(&mut self.encoder, self.compress);
         Ok(())
     }
 }

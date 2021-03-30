@@ -40,9 +40,11 @@ impl QueryClientInfo {
         hello_request: &HelloRequest,
         query_state: &mut QueryState,
     ) -> Result<QueryClientInfo> {
-        let mut client_info: QueryClientInfo = Default::default();
+        let mut client_info = QueryClientInfo {
+            query_kind: reader.read_scalar()?,
+            ..Default::default()
+        };
 
-        client_info.query_kind = reader.read_scalar()?;
         if client_info.query_kind == 0 {
             return Ok(client_info);
         }
@@ -64,23 +66,20 @@ impl QueryClientInfo {
 
                 client_info.client_revision = client_revision;
                 client_info.client_version_patch = client_revision;
-            },
+            }
             HTTP => {
                 client_info.http_method = reader.read_scalar()?;
                 client_info.http_user_agent = reader.read_string()?;
-            },
+            }
             _ => {}
         }
-
 
         if client_info.client_revision >= DBMS_MIN_REVISION_WITH_QUOTA_KEY_IN_CLIENT_INFO {
             client_info.quota_key = reader.read_string()?;
         }
 
-        if client_info.interface == TCP {
-            if client_info.client_revision >= DBMS_MIN_REVISION_WITH_VERSION_PATCH {
-                client_info.client_version_patch = reader.read_uvarint()?;
-            }
+        if client_info.interface == TCP && client_info.client_revision >= DBMS_MIN_REVISION_WITH_VERSION_PATCH {
+            client_info.client_version_patch = reader.read_uvarint()?;
         }
 
         // TODO
@@ -109,9 +108,7 @@ impl QueryProtocol {
         hello_request: &HelloRequest,
         query_state: &mut QueryState,
     ) -> Result<QueryProtocol> {
-
         let query_id = reader.read_string()?;
-
 
         let mut client_info = Default::default();
         if hello_request.client_revision >= DBMS_MIN_REVISION_WITH_CLIENT_INFO {
@@ -141,7 +138,7 @@ impl QueryProtocol {
         // TODO: all settings
         loop {
             let str = reader.read_string()?;
-            if str == "" {
+            if str.is_empty() {
                 break;
             }
         }

@@ -2,7 +2,7 @@ use std::iter;
 
 use crate::{
     binary::Encoder,
-    errors::{Result, Error, FromSqlError},
+    errors::{Error, FromSqlError, Result},
     types::{SqlType, Value, ValueRef},
 };
 

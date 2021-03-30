@@ -1,4 +1,4 @@
-use std::io::{Read, Write};
+use std::io::Read;
 
 use crate::errors::{Result, ServerError};
 use crate::protocols::*;
@@ -46,11 +46,10 @@ impl HelloRequest {
             }));
         }
 
-        if request.user != " INTERSERVER SECRET " {
-            // TODO set user password
-        } else {
-            //TODO
-        }
+        // TODO
+        // if request.user != " INTERSERVER SECRET " {
+        // } else {
+        // }
         Ok(request)
     }
 }
@@ -74,15 +73,15 @@ impl HelloResponse {
         encoder.uvarint(self.dbms_version_minor);
         encoder.uvarint(self.dbms_tcp_protocol_version);
 
-        if client_revision > DBMS_MIN_REVISION_WITH_SERVER_TIMEZONE {
+        if client_revision >= DBMS_MIN_REVISION_WITH_SERVER_TIMEZONE {
             encoder.string(&self.timezone);
         }
 
-        if client_revision > DBMS_MIN_REVISION_WITH_SERVER_DISPLAY_NAME {
+        if client_revision >= DBMS_MIN_REVISION_WITH_SERVER_DISPLAY_NAME {
             encoder.string(&self.server_display_name);
         }
 
-        if client_revision > DBMS_MIN_REVISION_WITH_VERSION_PATCH {
+        if client_revision >= DBMS_MIN_REVISION_WITH_VERSION_PATCH {
             encoder.uvarint(self.dbms_version_patch);
         }
 

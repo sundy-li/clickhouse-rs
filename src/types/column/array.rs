@@ -6,7 +6,11 @@ use crate::{
     binary::{Encoder, ReadEx},
     errors::Result,
     types::{
-        column::{column_data::{BoxColumnData, ArcColumnData}, list::List, ArcColumnWrapper, ColumnData},
+        column::{
+            column_data::{ArcColumnData, BoxColumnData},
+            list::List,
+            ArcColumnWrapper, ColumnData,
+        },
         SqlType, Value, ValueRef,
     },
 };
@@ -31,7 +35,8 @@ impl ArrayColumnData {
             0 => 0,
             _ => offsets.at(rows - 1) as usize,
         };
-        let inner = <dyn ColumnData>::load_data::<ArcColumnWrapper, _>(reader, type_name, size, tz)?;
+        let inner =
+            <dyn ColumnData>::load_data::<ArcColumnWrapper, _>(reader, type_name, size, tz)?;
 
         Ok(ArrayColumnData { inner, offsets })
     }
@@ -116,8 +121,8 @@ impl ColumnData for ArrayColumnData {
             if let Some(inner) = self.inner.cast_to(&self.inner, inner_target) {
                 return Some(Arc::new(ArrayColumnData {
                     inner,
-                    offsets: self.offsets.clone()
-                }))
+                    offsets: self.offsets.clone(),
+                }));
             }
         }
         None
@@ -129,7 +134,7 @@ mod test {
     use std::io::Cursor;
 
     use super::*;
-    use crate::{Block, types::Simple};
+    use crate::{types::Simple, Block};
 
     #[test]
     fn test_write_and_read() {

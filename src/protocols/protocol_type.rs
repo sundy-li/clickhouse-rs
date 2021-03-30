@@ -30,7 +30,6 @@ pub const SERVER_PROFILE_INFO: u64 = 6;
 pub const SERVER_TOTALS: u64 = 7;
 pub const SERVER_EXTREMES: u64 = 8;
 
-
 pub const NO_QUERY: u8 = 0;
 pub const INITIAL_QUERY: u8 = 1;
 pub const SECONDARY_QUERY: u8 = 2;

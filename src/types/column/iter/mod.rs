@@ -13,7 +13,7 @@ use chrono_tz::Tz;
 use crate::{
     errors::{Error, FromSqlError, Result},
     types::{
-        column::{column_data::ArcColumnData, StringPool, datetime64::to_datetime},
+        column::{column_data::ArcColumnData, datetime64::to_datetime, StringPool},
         decimal::NoBits,
         Column, ColumnType, Complex, Decimal, Simple, SqlType,
     },
@@ -419,12 +419,12 @@ impl<'a> DateTimeIterator<'a> {
                 let current_value = **ptr;
                 *ptr = ptr.offset(1);
                 self.tz.timestamp(i64::from(current_value), 0)
-            },
+            }
             DateTimeInnerIterator::DateTime64(ptr, _, precision) => {
                 let current_value = **ptr;
                 *ptr = ptr.offset(1);
                 to_datetime(current_value, *precision, self.tz)
-            },
+            }
         }
     }
 
@@ -443,8 +443,12 @@ impl ExactSizeIterator for DateTimeIterator<'_> {
     #[inline(always)]
     fn len(&self) -> usize {
         match self.inner {
-            DateTimeInnerIterator::DateTime32(ptr, end) => (end as usize - ptr as usize) / mem::size_of::<u32>(),
-            DateTimeInnerIterator::DateTime64(ptr, end, _) => (end as usize - ptr as usize) / mem::size_of::<i64>(),
+            DateTimeInnerIterator::DateTime32(ptr, end) => {
+                (end as usize - ptr as usize) / mem::size_of::<u32>()
+            }
+            DateTimeInnerIterator::DateTime64(ptr, end, _) => {
+                (end as usize - ptr as usize) / mem::size_of::<i64>()
+            }
         }
     }
 }
@@ -489,9 +493,6 @@ impl<'a> Iterator for DateTimeIterator<'a> {
         self.next()
     }
 }
-
-
-
 
 impl<'a, I> ExactSizeIterator for NullableIterator<'a, I>
 where
@@ -748,7 +749,6 @@ impl<'a> Iterable<'a, Simple> for DateTime<Tz> {
     type Iter = DateTimeIterator<'a>;
 
     fn iter(column: &'a Column<Simple>, column_type: SqlType) -> Result<Self::Iter> {
-
         match column_type {
             SqlType::DateTime(_) => (),
             _ => {
@@ -786,7 +786,6 @@ impl<'a> Iterable<'a, Simple> for Date<Tz> {
     type Iter = DateIterator<'a>;
 
     fn iter(column: &'a Column<Simple>, column_type: SqlType) -> Result<Self::Iter> {
-
         if column_type != SqlType::Date {
             return Err(Error::FromSql(FromSqlError::InvalidType {
                 src: column.sql_type().to_string(),
@@ -807,10 +806,7 @@ impl<'a> Iterable<'a, Simple> for Date<Tz> {
     }
 }
 
-fn date_iter(
-    column: &Column<Simple>,
-) -> Result<(*const u8, usize, Tz, Option<u32>)> {
-
+fn date_iter(column: &Column<Simple>) -> Result<(*const u8, usize, Tz, Option<u32>)> {
     let (ptr, size, tz, precision) = unsafe {
         let mut ptr: *const u8 = ptr::null();
         let mut tz: *const Tz = ptr::null();
@@ -938,7 +934,8 @@ where
                 _marker: marker::PhantomData,
             };
 
-            let iter = unsafe { T::iter(mem::transmute(&column), self.column_type.clone()) }.unwrap();
+            let iter =
+                unsafe { T::iter(mem::transmute(&column), self.column_type.clone()) }.unwrap();
 
             self.current = Some(iter);
             self.current_index += 1;

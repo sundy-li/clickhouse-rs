@@ -84,7 +84,7 @@ where
             let b: u8 = self.read_scalar()?;
 
             if b < 0x80 {
-                if  i == 9 && b > 1 {
+                if i == 9 && b > 1 {
                     return Err(Error::Driver(DriverError::Overflow));
                 }
                 return Ok(x | (u64::from(b) << s));

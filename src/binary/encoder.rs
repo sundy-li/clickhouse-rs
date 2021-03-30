@@ -1,7 +1,7 @@
 use std::io::Write;
 
 use crate::{
-    binary, errors,
+    binary,
     types::{Marshal, StatBuffer},
 };
 
@@ -50,8 +50,8 @@ impl Encoder {
         self.buffer
     }
 
-    pub fn write_to(self, writer: &mut Write) -> std::io::Result<()> {
-        writer.write(&self.buffer)?;
+    pub fn write_to(self, writer: &mut dyn Write) -> std::io::Result<()> {
+        writer.write_all(&self.buffer)?;
         writer.flush()
     }
 
