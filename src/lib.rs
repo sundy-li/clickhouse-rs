@@ -6,6 +6,7 @@ use crate::types::{Block, ResultWriter};
 
 use chrono_tz::Tz;
 use errors::Result;
+use log::debug;
 use protocols::{HelloRequest, HelloResponse, QueryProtocol, SERVER_END_OF_STREAM};
 
 mod binary;
@@ -64,6 +65,16 @@ pub struct QueryState {
     pub sent_all_data: bool,
 }
 
+impl QueryState {
+    fn reset(&mut self) {
+        self.stage = 0;
+        self.is_cancelled = false;
+        self.is_connection_closed = false;
+        self.is_empty = false;
+        self.sent_all_data = false;
+    }
+}
+
 /// A server that speaks the ClickHouseprotocol, and can delegate client commands to a backend
 /// that implements [`ClickHouseSession`]
 pub struct ClickHouseServer<S, R: Read, W: Write> {
@@ -103,11 +114,12 @@ impl<S: ClickHouseSession<W>, R: Read, W: Write> ClickHouseServer<S, R, W> {
     }
 
     fn run(&mut self) -> Result<()> {
-        self.process_hello()?;
+        debug!("Handle New session");
 
+        self.process_hello()?;
         loop {
             // reset state
-            self.query_state = Default::default();
+            self.query_state.reset();
             let packet_type_r: Result<u64> = self.reader.read_uvarint();
             let packet_type: u64;
 
@@ -125,7 +137,8 @@ impl<S: ClickHouseSession<W>, R: Read, W: Write> ClickHouseServer<S, R, W> {
                 }
             }
 
-            println!("read packet_type {:?}", packet_type);
+            debug!("Read packet_type {:?}", packet_type);
+
             match packet_type {
                 protocols::CLIENT_PING => {
                     let mut encoder = Encoder::new();
@@ -146,6 +159,9 @@ impl<S: ClickHouseSession<W>, R: Read, W: Write> ClickHouseServer<S, R, W> {
                 _ => return Err(format!("Unhandle packet type:{}", packet_type).into()),
             }
         }
+
+        debug!("Exited one session");
+        Ok(())
     }
 
     fn receive_hello(&mut self) -> Result<HelloRequest> {
@@ -206,9 +222,9 @@ impl<S: ClickHouseSession<W>, R: Read, W: Write> ClickHouseServer<S, R, W> {
     }
 
     fn process_data(&mut self, scalar: bool) -> Result<()> {
-        let _ = self.reader.read_string()?;
+        let _temporary_table = self.reader.read_string()?;
         let tz: Tz = self.session.timezone().parse()?;
-        let _ = Block::load(&mut self.reader, tz, false)?;
+        let _ = Block::load(&mut self.reader, tz, self.query_state.compression > 0)?;
         // TODO for insert
         Ok(())
     }

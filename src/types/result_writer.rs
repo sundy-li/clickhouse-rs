@@ -16,9 +16,4 @@ impl<'a> ResultWriter<'a> {
         block.send_server_data(&mut self.encoder, self.compress);
         Ok(())
     }
-
-    pub fn finalize(&mut self) -> Result<()> {
-        // Block::new().send_server_data(&mut self.encoder, self.compress);
-        Ok(())
-    }
 }
