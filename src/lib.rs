@@ -23,6 +23,10 @@ extern crate bitflags;
 pub trait ClickHouseSession {
     fn execute_query(&self, query: &str, stage: u64, writer: &mut ResultWriter) -> Result<()>;
 
+    fn with_stack_trace(&self) -> bool {
+        false
+    }
+
     fn dbms_name(&self) -> &str {
         "clickhouse-server"
     }
@@ -219,7 +223,7 @@ impl<S: ClickHouseSession, R: Read, W: Write> ClickHouseServer<S, R, W> {
             self.query_state.stage,
             &mut result_writer,
         ) {
-            ExceptionResponse::encode(&mut encoder, &e, true)?
+            ExceptionResponse::encode(&mut encoder, &e, self.session.with_stack_trace())?
         }
 
         encoder.uvarint(SERVER_END_OF_STREAM);

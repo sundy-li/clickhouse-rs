@@ -25,7 +25,7 @@ impl ExceptionResponse {
         //Name
         encoder.string("");
         // Message
-        encoder.string(error.to_string());
+        encoder.string(message);
         // StackTrace
         encoder.string(stack_trace);
         // Nested.
