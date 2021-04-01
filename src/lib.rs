@@ -153,7 +153,9 @@ impl<S: ClickHouseSession<W>, R: Read, W: Write> ClickHouseServer<S, R, W> {
                 }
                 protocols::CLIENT_HELLO => {
                     let _ = self.receive_hello()?;
-                    return Err("Unexpected packet Hello received from client".to_string().into());
+                    return Err("Unexpected packet Hello received from client"
+                        .to_string()
+                        .into());
                 }
 
                 _ => return Err(format!("Unhandle packet type:{}", packet_type).into()),

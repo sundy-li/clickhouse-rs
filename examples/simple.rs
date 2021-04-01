@@ -1,8 +1,8 @@
-use std::{io::Write, net, thread, env};
+use std::{env, io::Write, net, thread};
 
-use log::info;
 use clickhouse_srv::types::ResultWriter;
 use clickhouse_srv::{errors::Result, types::Block, ClickHouseServer};
+use log::info;
 use tokio::sync::mpsc;
 use tokio_stream::wrappers::ReceiverStream;
 

@@ -78,7 +78,9 @@ impl QueryClientInfo {
             client_info.quota_key = reader.read_string()?;
         }
 
-        if client_info.interface == TCP && client_info.client_revision >= DBMS_MIN_REVISION_WITH_VERSION_PATCH {
+        if client_info.interface == TCP
+            && client_info.client_revision >= DBMS_MIN_REVISION_WITH_VERSION_PATCH
+        {
             client_info.client_version_patch = reader.read_uvarint()?;
         }
 
