@@ -7,7 +7,9 @@ use crate::types::{Block, ResultWriter};
 use chrono_tz::Tz;
 use errors::Result;
 use log::debug;
-use protocols::{HelloRequest, HelloResponse, QueryProtocol, SERVER_END_OF_STREAM};
+use protocols::{
+    ExceptionResponse, HelloRequest, HelloResponse, QueryProtocol, SERVER_END_OF_STREAM,
+};
 
 mod binary;
 pub mod error_codes;
@@ -212,18 +214,20 @@ impl<S: ClickHouseSession, R: Read, W: Write> ClickHouseServer<S, R, W> {
 
         let mut result_writer = ResultWriter::new(&mut encoder, self.query_state.compression > 0);
 
-        let result = self.session.execute_query(
+        if let Err(e) = self.session.execute_query(
             &self.query_state.query,
             self.query_state.stage,
             &mut result_writer,
-        );
+        ) {
+            ExceptionResponse::encode(&mut encoder, &e, true)?
+        }
 
         encoder.uvarint(SERVER_END_OF_STREAM);
         encoder.write_to(&mut self.writer)?;
         Ok(())
     }
 
-    fn process_data(&mut self, scalar: bool) -> Result<()> {
+    fn process_data(&mut self, _scalar: bool) -> Result<()> {
         let _temporary_table = self.reader.read_string()?;
         let tz: Tz = self.session.timezone().parse()?;
         let _ = Block::load(&mut self.reader, tz, self.query_state.compression > 0)?;

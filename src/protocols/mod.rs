@@ -1,7 +1,9 @@
+mod protocol_exception;
 mod protocol_hello;
 mod protocol_query;
 mod protocol_type;
 
+pub use protocol_exception::*;
 pub use protocol_hello::*;
 pub use protocol_query::*;
 pub use protocol_type::*;

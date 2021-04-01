@@ -1,4 +1,4 @@
-use std::{env, io::Write, net, thread};
+use std::{env, net, thread};
 
 use clickhouse_srv::types::ResultWriter;
 use clickhouse_srv::{errors::Result, types::Block, ClickHouseServer};
@@ -33,8 +33,11 @@ fn main() {
 struct Session {}
 
 impl clickhouse_srv::ClickHouseSession for Session {
-    fn execute_query(&self, query: &str, stage: u64, writer: &mut ResultWriter) -> Result<()> {
+    fn execute_query(&self, query: &str, _stage: u64, writer: &mut ResultWriter) -> Result<()> {
         info!("Receive query {}", query);
+        if query.starts_with("insert") {
+            return Err("INSERT is not supported currently".into());
+        }
         let block = Block::new().column("abc", (1i32..1000).collect::<Vec<i32>>());
         writer.write_block(block)?;
         Ok(())
