@@ -523,7 +523,7 @@ fn get_username_from_url(url: &Url) -> Option<&str> {
 }
 
 fn get_password_from_url(url: &Url) -> Option<&str> {
-    url.password().map(|password| password)
+    url.password()
 }
 
 fn get_database_from_url(url: &Url) -> Result<Option<&str>> {

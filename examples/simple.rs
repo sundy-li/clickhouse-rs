@@ -3,8 +3,6 @@ use std::{env, io::Write, net, thread};
 use clickhouse_srv::types::ResultWriter;
 use clickhouse_srv::{errors::Result, types::Block, ClickHouseServer};
 use log::info;
-use tokio::sync::mpsc;
-use tokio_stream::wrappers::ReceiverStream;
 
 extern crate clickhouse_srv;
 
@@ -34,7 +32,7 @@ fn main() {
 
 struct Session {}
 
-impl<W: Write> clickhouse_srv::ClickHouseSession<W> for Session {
+impl clickhouse_srv::ClickHouseSession for Session {
     fn execute_query(&self, query: &str, stage: u64, writer: &mut ResultWriter) -> Result<()> {
         info!("Receive query {}", query);
         let block = Block::new().column("abc", (1i32..1000).collect::<Vec<i32>>());

@@ -1,4 +1,4 @@
-use std::io::prelude::*;
+use std::io::{self, prelude::*};
 use std::net;
 
 use crate::binary::{Encoder, ReadEx};
@@ -18,7 +18,7 @@ pub mod types;
 #[macro_use]
 extern crate bitflags;
 
-pub trait ClickHouseSession<W: Write> {
+pub trait ClickHouseSession {
     fn execute_query(&self, query: &str, stage: u64, writer: &mut ResultWriter) -> Result<()>;
 
     fn dbms_name(&self) -> &str {
@@ -86,20 +86,20 @@ pub struct ClickHouseServer<S, R: Read, W: Write> {
     hello_request: HelloRequest,
 }
 
-impl<S: ClickHouseSession<net::TcpStream>> ClickHouseServer<S, net::TcpStream, net::TcpStream> {
+impl<S: ClickHouseSession> ClickHouseServer<S, net::TcpStream, net::TcpStream> {
     pub fn run_on_tcp(session: S, stream: net::TcpStream) -> Result<()> {
         let w = stream.try_clone()?;
         ClickHouseServer::run_on(session, stream, w)
     }
 }
 
-impl<S: ClickHouseSession<ST>, ST: Read + Write + Clone> ClickHouseServer<S, ST, ST> {
+impl<S: ClickHouseSession, ST: Read + Write + Clone> ClickHouseServer<S, ST, ST> {
     pub fn run_on_stream(session: S, stream: ST) -> Result<()> {
         ClickHouseServer::run_on(session, stream.clone(), stream)
     }
 }
 
-impl<S: ClickHouseSession<W>, R: Read, W: Write> ClickHouseServer<S, R, W> {
+impl<S: ClickHouseSession, R: Read, W: Write> ClickHouseServer<S, R, W> {
     fn run_on(session: S, reader: R, writer: W) -> Result<()> {
         let mut srv = ClickHouseServer {
             session,
@@ -212,11 +212,11 @@ impl<S: ClickHouseSession<W>, R: Read, W: Write> ClickHouseServer<S, R, W> {
 
         let mut result_writer = ResultWriter::new(&mut encoder, self.query_state.compression > 0);
 
-        self.session.execute_query(
+        let result = self.session.execute_query(
             &self.query_state.query,
             self.query_state.stage,
             &mut result_writer,
-        )?;
+        );
 
         encoder.uvarint(SERVER_END_OF_STREAM);
         encoder.write_to(&mut self.writer)?;
