@@ -1,7 +1,7 @@
 use std::io::Read;
 
+use crate::binary::ReadEx;
 use crate::errors::Result;
-use crate::{binary::ReadEx, QueryState};
 
 use super::*;
 
@@ -38,7 +38,6 @@ impl QueryClientInfo {
     pub fn read_from<R: Read>(
         reader: &mut R,
         hello_request: &HelloRequest,
-        query_state: &mut QueryState,
     ) -> Result<QueryClientInfo> {
         let mut client_info = QueryClientInfo {
             query_kind: reader.read_scalar()?,
@@ -96,7 +95,7 @@ impl QueryClientInfo {
 }
 
 #[derive(Default, Debug)]
-pub struct QueryProtocol {
+pub struct QueryRequest {
     pub(crate) query_id: String,
     pub(crate) client_info: QueryClientInfo,
     pub(crate) stage: u64,
@@ -104,17 +103,16 @@ pub struct QueryProtocol {
     pub(crate) query: String,
 }
 
-impl QueryProtocol {
+impl QueryRequest {
     pub fn read_from<R: Read>(
         reader: &mut R,
         hello_request: &HelloRequest,
-        query_state: &mut QueryState,
-    ) -> Result<QueryProtocol> {
+    ) -> Result<QueryRequest> {
         let query_id = reader.read_string()?;
 
         let mut client_info = Default::default();
         if hello_request.client_revision >= DBMS_MIN_REVISION_WITH_CLIENT_INFO {
-            client_info = QueryClientInfo::read_from(reader, hello_request, query_state)?;
+            client_info = QueryClientInfo::read_from(reader, hello_request)?;
         }
 
         if client_info.query_kind == 0 {
@@ -145,7 +143,7 @@ impl QueryProtocol {
             }
         }
 
-        let query_protocol = QueryProtocol {
+        let query_protocol = QueryRequest {
             query_id,
             client_info,
             stage: reader.read_uvarint()?,

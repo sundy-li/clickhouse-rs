@@ -1,4 +1,5 @@
-use std::{env, net, thread};
+use std::{env, error::Error, net, thread};
+use tokio::net::{TcpListener, TcpStream};
 
 use clickhouse_srv::types::ResultWriter;
 use clickhouse_srv::{errors::Result, types::Block, ClickHouseServer};
@@ -6,27 +7,27 @@ use log::info;
 
 extern crate clickhouse_srv;
 
-fn main() {
+#[tokio::main]
+async fn main() -> std::result::Result<(), Box<dyn Error>> {
     env::set_var("RUST_LOG", "clickhouse_srv=debug");
     env_logger::init();
-
-    let mut threads = Vec::new();
     let host_port = "127.0.0.1:9000";
-    let listener = net::TcpListener::bind(host_port).unwrap();
+
+    // Note that this is the Tokio TcpListener, which is fully async.
+    let listener = TcpListener::bind(host_port).await?;
 
     info!("Server start at {}", host_port);
-    while let Ok((s, _)) = listener.accept() {
-        threads.push(thread::spawn(move || {
-            let s = ClickHouseServer::run_on_tcp(Session {}, s);
-            match s {
-                Err(e) => println!("{}", e.to_string()),
-                _ => {}
-            }
-        }));
-    }
 
-    for t in threads {
-        t.join().unwrap();
+    loop {
+        // Asynchronously wait for an inbound TcpStream.
+        let (stream, _) = listener.accept().await?;
+
+        // Spawn our handler to be run asynchronously.
+        tokio::spawn(async move {
+            if let Err(e) = ClickHouseServer::run_on_stream(Session {}, stream).await {
+                info!("Error: {}", e);
+            }
+        });
     }
 }
 

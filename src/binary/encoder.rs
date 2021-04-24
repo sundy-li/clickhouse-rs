@@ -50,11 +50,6 @@ impl Encoder {
         self.buffer
     }
 
-    pub fn write_to(self, writer: &mut dyn Write) -> std::io::Result<()> {
-        writer.write_all(&self.buffer)?;
-        writer.flush()
-    }
-
     pub fn get_buffer_ref(&self) -> &[u8] {
         self.buffer.as_ref()
     }

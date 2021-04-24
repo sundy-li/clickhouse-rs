@@ -1,5 +1,3 @@
-use std::io::Read;
-
 use crate::errors::Result;
 use crate::protocols::*;
 use crate::{binary::Encoder, error_codes::ErrorCodes, errors::Error};
@@ -33,9 +31,3 @@ impl ExceptionResponse {
         Ok(())
     }
 }
-
-// // Nested.
-// if err := writer.Bool(false); err != nil {
-//     return errors.Wrapf(err, "couldn't write nested")
-// }
-// return nil
