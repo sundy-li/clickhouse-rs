@@ -6,6 +6,7 @@ use chrono_tz::Tz;
 use errors::{DriverError, Error, Result};
 use io::ClickhouseTransport;
 use log::debug;
+use log::error;
 use protocols::{
     ExceptionResponse, HelloRequest, HelloResponse, Packet, QueryRequest, SERVER_END_OF_STREAM,
 };
@@ -83,133 +84,64 @@ impl QueryState {
     }
 }
 
-/// A server that speaks the ClickHouseprotocol, and can delegate client commands to a backend
-/// that implements [`ClickHouseSession`]
-pub struct ClickHouseServer<S> {
-    session: S,
+
+pub struct CHContext<S> {
+    pub state: QueryState,
+    pub session: S,
 }
 
-impl<S: ClickHouseSession> ClickHouseServer<S> {
-    pub async fn run_on_stream(session: S, stream: TcpStream) -> Result<()> {
+impl<S: ClickHouseSession> CHContext<S> {
+    fn new(state: QueryState, session: S) -> Self {
+        Self {
+            state,
+            session,
+        }
+    }
+}
+
+/// A server that speaks the ClickHouseprotocol, and can delegate client commands to a backend
+/// that implements [`ClickHouseSession`]
+pub struct ClickHouseServer {}
+
+impl ClickHouseServer {
+    pub async fn run_on_stream<S>(session: S, stream: TcpStream) -> Result<()>
+        where
+            S: ClickHouseSession {
         ClickHouseServer::run_on(session, stream.into()).await
     }
 }
 
-impl<S: ClickHouseSession> ClickHouseServer<S> {
-    async fn run_on(session: S, stream: Stream) -> Result<()> {
-        let mut srv = ClickHouseServer { session };
+impl ClickHouseServer {
+    async fn run_on<S>(session: S, stream: Stream) -> Result<()>
+        where
+            S: ClickHouseSession {
+        let mut srv = ClickHouseServer {};
 
-        srv.run(stream).await?;
+        srv.run(session, stream).await?;
         Ok(())
     }
 
-    async fn run(&mut self, stream: Stream) -> Result<()> {
+    async fn run<S>(&mut self, session: S, stream: Stream) -> Result<()>
+        where
+            S: ClickHouseSession {
         debug!("Handle New session");
-        let tz: Tz = self.session.timezone().parse()?;
-        let mut transport = ClickhouseTransport::new(stream, tz);
+        let tz: Tz = session.timezone().parse()?;
+        let ctx = CHContext::new(QueryState::default(), session);
+        let mut transport = ClickhouseTransport::new(ctx, stream, tz);
 
-        if let Some(packet) = transport.next().await {
-            let mut encoder = Encoder::new();
-
-            match packet {
-                Ok(Packet::Hello(hello)) => {},
-                Err(Error::Driver(DriverError::UnknownPacket { packet })) => {
-                    if packet == 'G' as u64 || packet == 'P' as u64 {
-                        encoder.string("HTTP/1.0 400 Bad Request\r\n\r\n");
-                    },
+        while let Some(ret) = transport.next().await {
+            match ret {
+                Ok(()) => {
+                    debug!("Ready one");
                 },
-                _ => {
-
+                Err(e) => {
+                    error!("Error in {:?}", e);
                 }
-            }
-
-            let bytes = encoder.get_buffer();
-            if !bytes.is_empty() {
-
-            }
-        }
-
-        while let Some(packet) = transport.next().await {
-            match packet {
-                Ok(Packet::Ping) => {}
-                Ok(Packet::Cancel) => {}
-                Ok(Packet::Hello(hello)) => {
-                    // first packet must be hello request
-                }
-                Ok(Packet::Query(query)) => {}
-
-                Err(e) => {}
             }
         }
         debug!("Exited one session");
         Ok(())
     }
-
-    // fn receive_hello(&mut self) -> Result<HelloRequest> {
-    //     let packet: u64 = self.reader.read_uvarint()?;
-    //     if packet != protocols::SERVER_HELLO {
-    //         // comes from http
-    //         if packet == 'G' as u64 || packet == 'P' as u64 {
-    //             let mut encoder = Encoder::new();
-    //             encoder.string("HTTP/1.0 400 Bad Request\r\n\r\n");
-    //             encoder.write_to(&mut self.writer)?;
-    //             return Err("HTTP request wrong port, it's TCP port".into());
-    //         }
-    //     }
-    //     HelloRequest::read_from(&mut self.reader)
-    // }
-
-    // fn process_hello(&mut self) -> Result<()> {
-    //     let request = self.receive_hello()?;
-    //     let response = HelloResponse {
-    //         dbms_name: self.session.dbms_name().to_string(),
-    //         dbms_version_major: self.session.dbms_version_major(),
-    //         dbms_version_minor: self.session.dbms_version_minor(),
-    //         dbms_tcp_protocol_version: self.session.dbms_tcp_protocol_version(),
-    //         timezone: self.session.timezone().to_string(),
-    //         server_display_name: self.session.server_display_name().to_string(),
-    //         dbms_version_patch: self.session.dbms_version_patch(),
-    //     };
-
-    //     let mut encoder = Encoder::new();
-    //     response.encode(&mut encoder, request.client_revision)?;
-    //     encoder.write_to(&mut self.writer)?;
-
-    //     self.hello_request = request;
-    //     Ok(())
-    // }
-
-    // fn process_query(&mut self) -> Result<()> {
-    //     let query_protocol = QueryRequest::read_from(&mut self.reader, &self.hello_request)?;
-
-    //     let mut encoder = Encoder::new();
-
-    //     self.query_state.query = query_protocol.query;
-    //     self.query_state.stage = query_protocol.stage;
-    //     self.query_state.compression = query_protocol.compression;
-
-    //     let mut result_writer = ResultWriter::new(&mut encoder, self.query_state.compression > 0);
-
-    //     if let Err(e) = self.session.execute_query(
-    //         &self.query_state.query,
-    //         self.query_state.stage,
-    //         &mut result_writer,
-    //     ) {
-    //         ExceptionResponse::encode(&mut encoder, &e, self.session.with_stack_trace())?
-    //     }
-
-    //     encoder.uvarint(SERVER_END_OF_STREAM);
-    //     encoder.write_to(&mut self.writer)?;
-    //     Ok(())
-    // }
-
-    // fn process_data(&mut self, _scalar: bool) -> Result<()> {
-    //     let _temporary_table = self.reader.read_string()?;
-    //     let tz: Tz = self.session.timezone().parse()?;
-    //     let _ = Block::load(&mut self.reader, tz, self.query_state.compression > 0)?;
-    //     // TODO for insert
-    //     Ok(())
-    // }
 }
 
 #[macro_export]

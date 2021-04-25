@@ -1,5 +1,5 @@
 use std::{env, error::Error, net, thread};
-use tokio::net::{TcpListener, TcpStream};
+use tokio::net::TcpListener;
 
 use clickhouse_srv::types::ResultWriter;
 use clickhouse_srv::{errors::Result, types::Block, ClickHouseServer};
@@ -25,7 +25,7 @@ async fn main() -> std::result::Result<(), Box<dyn Error>> {
         // Spawn our handler to be run asynchronously.
         tokio::spawn(async move {
             if let Err(e) = ClickHouseServer::run_on_stream(Session {}, stream).await {
-                info!("Error: {}", e);
+                info!("Error: {:?}", e);
             }
         });
     }
@@ -39,7 +39,7 @@ impl clickhouse_srv::ClickHouseSession for Session {
         if query.starts_with("insert") {
             return Err("INSERT is not supported currently".into());
         }
-        let block = Block::new().column("abc", (1i32..1000).collect::<Vec<i32>>());
+        let block = Block::new().column("abc", (1i32..3).collect::<Vec<i32>>());
         writer.write_block(block)?;
         Ok(())
     }

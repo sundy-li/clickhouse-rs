@@ -7,6 +7,7 @@ pub use protocol_exception::*;
 pub use protocol_hello::*;
 pub use protocol_query::*;
 pub use protocol_type::*;
+use crate::types::Block;
 
 #[derive(Debug)]
 pub enum Packet {
@@ -14,6 +15,7 @@ pub enum Packet {
     Cancel,
     Hello(HelloRequest),
     Query(QueryRequest),
+    Data(Block),
 }
 
 pub const DBMS_MIN_REVISION_WITH_CLIENT_INFO: u64 = 54032;

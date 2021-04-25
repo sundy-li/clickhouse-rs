@@ -37,7 +37,6 @@ pub struct QueryClientInfo {
 impl QueryClientInfo {
     pub fn read_from<R: Read>(
         reader: &mut R,
-        hello_request: &HelloRequest,
     ) -> Result<QueryClientInfo> {
         let mut client_info = QueryClientInfo {
             query_kind: reader.read_scalar()?,
@@ -112,7 +111,7 @@ impl QueryRequest {
 
         let mut client_info = Default::default();
         if hello_request.client_revision >= DBMS_MIN_REVISION_WITH_CLIENT_INFO {
-            client_info = QueryClientInfo::read_from(reader, hello_request)?;
+            client_info = QueryClientInfo::read_from(reader)?;
         }
 
         if client_info.query_kind == 0 {
