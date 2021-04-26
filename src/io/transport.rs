@@ -204,10 +204,6 @@ impl<S: ClickHouseSession> Stream for ClickhouseTransport<S> {
     fn poll_next(mut self: Pin<&mut Self>, cx: &mut task::Context) -> Poll<Option<Self::Item>> {
         let mut this = self.project();
 
-        if !this.wr_is_empty() {
-            this.wr_flush(cx);
-        }
-
         loop {
             match read_to_end(this.inner.as_mut(), cx, &mut this.rd) {
                 Poll::Pending => {
@@ -247,8 +243,36 @@ impl<S: ClickHouseSession> Stream for ClickhouseTransport<S> {
             }
         }
 
+        //drain wb
         if !this.wr_is_empty() {
-            this.wr_flush(cx);
+            // Making the borrow checker happy
+            let res = {
+                let buf = {
+                    let pos = this.wr.position() as usize;
+                    let buf = &this.wr.get_ref()[pos..];
+
+                    debug!("writing; remaining size: {}  = {:?}", buf.len(), buf);
+                    buf
+                };
+                this.inner.as_mut().poll_write(cx, buf)
+            };
+
+            match res {
+                Poll::Ready(Ok(mut n)) => {
+                    debug!("transport flush {:?}", n);
+
+                    n += this.wr.position() as usize;
+                    this.wr.set_position(n as u64);
+                    if n == 0 {
+                        return Poll::Ready(Some(Ok(())));
+                    }
+                }
+                Poll::Ready(Err(e)) => {
+                    debug!("transport flush error; err={:?}", e);
+                    return Poll::Ready(Some(Err(e.into())));
+                }
+                Poll::Pending => return Poll::Pending,
+            }
         }
         Poll::Pending
     }

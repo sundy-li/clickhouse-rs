@@ -136,6 +136,7 @@ impl ClickHouseServer {
                 },
                 Err(e) => {
                     error!("Error in {:?}", e);
+                    break;
                 }
             }
         }
