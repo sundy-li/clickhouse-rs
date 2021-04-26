@@ -79,7 +79,7 @@ impl<'p, S: ClickHouseSession> ClickhouseTransportProj<'p, S> {
                 let pos = self.wr.position() as usize;
                 let buf = &self.wr.get_ref()[pos..];
 
-                debug!("writing; remaining={:?}", buf);
+                debug!("writing; remaining size: {}  = {:?}", buf.len(), buf);
                 buf
             };
 
@@ -88,6 +88,8 @@ impl<'p, S: ClickHouseSession> ClickhouseTransportProj<'p, S> {
 
         match res {
             Poll::Ready(Ok(mut n)) => {
+                debug!("transport flush {:?}", n);
+
                 n += self.wr.position() as usize;
                 self.wr.set_position(n as u64);
                 Ok(true)
@@ -183,8 +185,8 @@ impl<'p, S: ClickHouseSession> ClickhouseTransportProj<'p, S> {
                 if packet == 'G' as u64 || packet == 'P' as u64 {
                     encoder.string("HTTP/1.0 400 Bad Request\r\n\r\n");
                     let bytes = encoder.get_buffer();
-                    self.wr.write_all(&bytes)?;
-                    return Err("HTTP request wrong port, it's TCP port".into());
+                    *self.wr = Cursor::new(bytes);
+                    return Ok(());
                 }
                 debug!("Error in packets {:?}", err);
             },
@@ -217,14 +219,17 @@ impl<S: ClickHouseSession> Stream for ClickhouseTransport<S> {
                             } else {
                                 match this.response_error(e) {
                                     Err(f) => return Poll::Ready(Some(Err(f.into()))),
-                                    _ =>{},
+                                    _ => {
+                                        break;
+                                    },
                                 }
                             }
                         },
                         Ok(packet) => {
                             match this.response(packet) {
                                 Err(f) => return Poll::Ready(Some(Err(f.into()))),
-                                _ => {},
+                                _ => {
+                                },
                             }
                         },
                     }

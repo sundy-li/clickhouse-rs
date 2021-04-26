@@ -36,6 +36,7 @@ impl<'a, T: Read> Parser<T> {
 
     pub(crate) fn parse_packet(&mut self, hello: &Option<HelloRequest>, compress: bool) -> Result<Packet> {
         let packet = self.reader.read_uvarint()?;
+        println!("pp {}", packet);
         match packet {
             protocols::CLIENT_PING => Ok(Packet::Ping),
             protocols::CLIENT_CANCEL => Ok(Packet::Cancel),
