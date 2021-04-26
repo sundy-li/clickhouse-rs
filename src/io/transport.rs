@@ -234,7 +234,8 @@ impl<S: ClickHouseSession> Stream for ClickhouseTransport<S> {
                     debug!("Read {} bytes", n);
 
                     if n == 0 {
-                        return Poll::Ready(Some(Ok(())));
+                        break;
+                        // return Poll::Ready(Some(Ok(())));
                     }
                 }
                 Poll::Ready(Err(e)) => return Poll::Ready(Some(Err(e.into()))),
