@@ -1,20 +1,25 @@
-use std::{
-    convert, fmt, mem,
-    net::{Ipv4Addr, Ipv6Addr},
-    str,
-    sync::Arc,
-};
+use std::convert;
+use std::fmt;
+use std::mem;
+use std::net::Ipv4Addr;
+use std::net::Ipv6Addr;
+use std::str;
+use std::sync::Arc;
 
 use chrono::prelude::*;
 use chrono_tz::Tz;
-
-use crate::types::{
-    column::{datetime64::to_datetime, Either},
-    decimal::{Decimal, NoBits},
-    DateConverter, DateTimeType, Enum16, Enum8, HasSqlType, SqlType,
-};
-
 use uuid::Uuid;
+
+use crate::types::column::datetime64::to_datetime;
+use crate::types::column::Either;
+use crate::types::decimal::Decimal;
+use crate::types::decimal::NoBits;
+use crate::types::DateConverter;
+use crate::types::DateTimeType;
+use crate::types::Enum16;
+use crate::types::Enum8;
+use crate::types::HasSqlType;
+use crate::types::SqlType;
 
 pub(crate) type AppDateTime = DateTime<Tz>;
 pub(crate) type AppDate = Date<Tz>;
@@ -43,7 +48,7 @@ pub enum Value {
     Array(&'static SqlType, Arc<Vec<Value>>),
     Decimal(Decimal),
     Enum8(Vec<(String, i8)>, Enum8),
-    Enum16(Vec<(String, i16)>, Enum16),
+    Enum16(Vec<(String, i16)>, Enum16)
 }
 
 impl PartialEq for Value {
@@ -76,7 +81,7 @@ impl PartialEq for Value {
             (Value::Enum16(values_a, val_a), Value::Enum16(values_b, val_b)) => {
                 *values_a == *values_b && *val_a == *val_b
             }
-            _ => false,
+            _ => false
         }
     }
 }
@@ -107,13 +112,13 @@ impl Value {
                 underlying: 0,
                 precision,
                 scale,
-                nobits: NoBits::N64,
+                nobits: NoBits::N64
             }),
             SqlType::Ipv4 => Value::Ipv4([0_u8; 4]),
             SqlType::Ipv6 => Value::Ipv6([0_u8; 16]),
             SqlType::Uuid => Value::Uuid([0_u8; 16]),
             SqlType::Enum8(values) => Value::Enum8(values, Enum8(0)),
-            SqlType::Enum16(values) => Value::Enum16(values, Enum16(0)),
+            SqlType::Enum16(values) => Value::Enum16(values, Enum16(0))
         }
     }
 }
@@ -131,7 +136,7 @@ impl fmt::Display for Value {
             Value::Int64(ref v) => fmt::Display::fmt(v, f),
             Value::String(ref v) => match str::from_utf8(v) {
                 Ok(s) => fmt::Display::fmt(s, f),
-                Err(_) => write!(f, "{:?}", v),
+                Err(_) => write!(f, "{:?}", v)
             },
             Value::Float32(ref v) => fmt::Display::fmt(v, f),
             Value::Float64(ref v) => fmt::Display::fmt(v, f),
@@ -160,7 +165,7 @@ impl fmt::Display for Value {
             }
             Value::Nullable(v) => match v {
                 Either::Left(_) => write!(f, "NULL"),
-                Either::Right(data) => data.fmt(f),
+                Either::Right(data) => data.fmt(f)
             },
             Value::Array(_, vs) => {
                 let cells: Vec<String> = vs.iter().map(|v| format!("{}", v)).collect();
@@ -179,11 +184,11 @@ impl fmt::Display for Value {
                 buffer[8..].reverse();
                 match Uuid::from_slice(&buffer) {
                     Ok(uuid) => write!(f, "{}", uuid),
-                    Err(e) => write!(f, "{}", e),
+                    Err(e) => write!(f, "{}", e)
                 }
             }
             Value::Enum8(ref _v1, ref v2) => write!(f, "Enum8, {}", v2),
-            Value::Enum16(ref _v1, ref v2) => write!(f, "Enum16, {}", v2),
+            Value::Enum16(ref _v1, ref v2) => write!(f, "Enum16, {}", v2)
         }
     }
 }
@@ -229,7 +234,7 @@ impl convert::From<Value> for SqlType {
 impl<T> convert::From<Option<T>> for Value
 where
     Value: convert::From<T>,
-    T: HasSqlType,
+    T: HasSqlType
 {
     fn from(value: Option<T>) -> Value {
         match value {
@@ -237,7 +242,7 @@ where
                 let default_type: SqlType = T::get_sql_type();
                 Value::Nullable(Either::Left(default_type.into()))
             }
-            Some(inner) => Value::Nullable(Either::Right(Box::new(inner.into()))),
+            Some(inner) => Value::Nullable(Either::Right(Box::new(inner.into())))
         }
     }
 }
@@ -414,19 +419,20 @@ pub(crate) fn decode_ipv6(octets: &[u8; 16]) -> Ipv6Addr {
 
 #[cfg(test)]
 mod test {
-    use super::*;
-    use chrono_tz::Tz::{self, UTC};
     use std::fmt;
 
-    use rand::{
-        distributions::{Distribution, Standard},
-        random,
-    };
+    use chrono_tz::Tz::UTC;
+    use chrono_tz::Tz::{self};
+    use rand::distributions::Distribution;
+    use rand::distributions::Standard;
+    use rand::random;
+
+    use super::*;
 
     fn test_into_t<T>(v: Value, x: &T)
     where
         Value: convert::Into<T>,
-        T: PartialEq + fmt::Debug,
+        T: PartialEq + fmt::Debug
     {
         let a: T = v.into();
         assert_eq!(a, *x);
@@ -436,7 +442,7 @@ mod test {
     where
         Value: convert::Into<T> + convert::From<T>,
         T: PartialEq + fmt::Debug + Clone,
-        Standard: Distribution<T>,
+        Standard: Distribution<T>
     {
         for _ in 0..100 {
             let value = random::<T>();
@@ -447,7 +453,7 @@ mod test {
     fn test_from_t<T>(value: &T)
     where
         Value: convert::Into<T> + convert::From<T>,
-        T: PartialEq + fmt::Debug + Clone,
+        T: PartialEq + fmt::Debug + Clone
     {
         test_into_t::<T>(Value::from(value.clone()), &value);
     }

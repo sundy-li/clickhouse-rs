@@ -1,14 +1,14 @@
 #[derive(Clone, Debug)]
 pub struct Query {
     sql: String,
-    id: String,
+    id: String
 }
 
 impl Query {
     pub fn new(sql: impl AsRef<str>) -> Self {
         Self {
             sql: sql.as_ref().to_string(),
-            id: "".to_string(),
+            id: "".to_string()
         }
     }
 
@@ -28,9 +28,7 @@ impl Query {
     }
 
     pub(crate) fn map_sql<F>(self, f: F) -> Self
-    where
-        F: Fn(&str) -> String,
-    {
+    where F: Fn(&str) -> String {
         Self {
             sql: f(&self.sql),
             ..self
@@ -39,8 +37,7 @@ impl Query {
 }
 
 impl<T> From<T> for Query
-where
-    T: AsRef<str>,
+where T: AsRef<str>
 {
     fn from(source: T) -> Self {
         Self::new(source)

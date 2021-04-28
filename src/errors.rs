@@ -1,4 +1,8 @@
-use std::{borrow::Cow, io, result, str::Utf8Error, string::FromUtf8Error};
+use std::borrow::Cow;
+use std::io;
+use std::result;
+use std::str::Utf8Error;
+use std::string::FromUtf8Error;
 
 use thiserror::Error;
 #[cfg(feature = "tokio_io")]
@@ -32,7 +36,7 @@ pub enum Error {
     Url(#[source] UrlError),
 
     #[error("From SQL error: `{}`", _0)]
-    FromSql(#[source] FromSqlError),
+    FromSql(#[source] FromSqlError)
 }
 
 /// This type represents Clickhouse server error.
@@ -42,7 +46,7 @@ pub struct ServerError {
     pub code: ErrorCodes,
     pub name: String,
     pub message: String,
-    pub stack_trace: String,
+    pub stack_trace: String
 }
 
 /// This type enumerates connection errors.
@@ -56,7 +60,7 @@ pub enum ConnectionError {
 
     #[cfg(feature = "tls")]
     #[error("TLS connection error: `{}`", _0)]
-    TlsError(#[source] native_tls::Error),
+    TlsError(#[source] native_tls::Error)
 }
 
 /// This type enumerates connection URL errors.
@@ -75,7 +79,7 @@ pub enum UrlError {
     UnknownParameter { param: String },
 
     #[error("Unsupported connection URL scheme `{}'", scheme)]
-    UnsupportedScheme { scheme: String },
+    UnsupportedScheme { scheme: String }
 }
 
 /// This type enumerates driver errors.
@@ -94,7 +98,7 @@ pub enum DriverError {
     Timeout,
 
     #[error("Invalid utf-8 sequence.")]
-    Utf8Error(Utf8Error),
+    Utf8Error(Utf8Error)
 }
 
 /// This type enumerates cast from sql type errors.
@@ -103,14 +107,14 @@ pub enum FromSqlError {
     #[error("SqlType::{} cannot be cast to {}.", src, dst)]
     InvalidType {
         src: Cow<'static, str>,
-        dst: Cow<'static, str>,
+        dst: Cow<'static, str>
     },
 
     #[error("Out of range.")]
     OutOfRange,
 
     #[error("Unsupported operation.")]
-    UnsupportedOperation,
+    UnsupportedOperation
 }
 
 impl Error {
@@ -153,7 +157,7 @@ impl From<Error> for io::Error {
     fn from(err: Error) -> Self {
         match err {
             Error::IO(error) => error,
-            e => io::Error::new(io::ErrorKind::Other, e.to_string()),
+            e => io::Error::new(io::ErrorKind::Other, e.to_string())
         }
     }
 }

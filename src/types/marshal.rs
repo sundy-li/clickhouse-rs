@@ -108,14 +108,18 @@ impl Marshal for bool {
 mod test {
     use std::fmt;
 
-    use crate::types::{Marshal, StatBuffer, Unmarshal};
-    use rand::distributions::{Distribution, Standard};
+    use rand::distributions::Distribution;
+    use rand::distributions::Standard;
     use rand::random;
+
+    use crate::types::Marshal;
+    use crate::types::StatBuffer;
+    use crate::types::Unmarshal;
 
     fn test_some<T>()
     where
         T: Copy + fmt::Debug + StatBuffer + Marshal + Unmarshal<T> + PartialEq,
-        Standard: Distribution<T>,
+        Standard: Distribution<T>
     {
         for _ in 0..100 {
             let mut buffer = T::buffer();

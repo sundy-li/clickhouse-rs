@@ -1,20 +1,21 @@
+use std::borrow::Cow;
 #[cfg(feature = "tls")]
 use std::convert;
-
-use std::{
-    borrow::Cow,
-    fmt,
-    str::FromStr,
-    sync::{Arc, Mutex},
-    time::Duration,
-};
-
-use crate::errors::{Error, Result, UrlError};
-#[cfg(feature = "tls")]
-use native_tls;
+use std::fmt;
 #[cfg(feature = "tls")]
 use std::fmt::Formatter;
+use std::str::FromStr;
+use std::sync::Arc;
+use std::sync::Mutex;
+use std::time::Duration;
+
+#[cfg(feature = "tls")]
+use native_tls;
 use url::Url;
+
+use crate::errors::Error;
+use crate::errors::Result;
+use crate::errors::UrlError;
 
 const DEFAULT_MIN_CONNS: usize = 10;
 
@@ -24,12 +25,12 @@ const DEFAULT_MAX_CONNS: usize = 20;
 #[allow(clippy::large_enum_variant)]
 enum State {
     Raw(Options),
-    Url(String),
+    Url(String)
 }
 
 #[derive(Clone)]
 pub struct OptionsSource {
-    state: Arc<Mutex<State>>,
+    state: Arc<Mutex<State>>
 }
 
 impl fmt::Debug for OptionsSource {
@@ -37,7 +38,7 @@ impl fmt::Debug for OptionsSource {
         let guard = self.state.lock().unwrap();
         match *guard {
             State::Url(ref url) => write!(f, "Url({})", url),
-            State::Raw(ref options) => write!(f, "{:?}", options),
+            State::Raw(ref options) => write!(f, "{:?}", options)
         }
     }
 }
@@ -65,7 +66,7 @@ impl OptionsSource {
 impl Default for OptionsSource {
     fn default() -> Self {
         Self {
-            state: Arc::new(Mutex::new(State::Raw(Options::default()))),
+            state: Arc::new(Mutex::new(State::Raw(Options::default())))
         }
     }
 }
@@ -77,7 +78,7 @@ pub trait IntoOptions {
 impl IntoOptions for Options {
     fn into_options_src(self) -> OptionsSource {
         OptionsSource {
-            state: Arc::new(Mutex::new(State::Raw(self))),
+            state: Arc::new(Mutex::new(State::Raw(self)))
         }
     }
 }
@@ -85,7 +86,7 @@ impl IntoOptions for Options {
 impl IntoOptions for &str {
     fn into_options_src(self) -> OptionsSource {
         OptionsSource {
-            state: Arc::new(Mutex::new(State::Url(self.into()))),
+            state: Arc::new(Mutex::new(State::Url(self.into())))
         }
     }
 }
@@ -93,7 +94,7 @@ impl IntoOptions for &str {
 impl IntoOptions for String {
     fn into_options_src(self) -> OptionsSource {
         OptionsSource {
-            state: Arc::new(Mutex::new(State::Url(self))),
+            state: Arc::new(Mutex::new(State::Url(self)))
         }
     }
 }
@@ -109,7 +110,7 @@ impl Certificate {
     pub fn from_der(der: &[u8]) -> Result<Certificate> {
         let inner = match native_tls::Certificate::from_der(der) {
             Ok(certificate) => certificate,
-            Err(err) => return Err(Error::Other(err.to_string().into())),
+            Err(err) => return Err(Error::Other(err.to_string().into()))
         };
         Ok(Certificate(Arc::new(inner)))
     }
@@ -118,7 +119,7 @@ impl Certificate {
     pub fn from_pem(der: &[u8]) -> Result<Certificate> {
         let inner = match native_tls::Certificate::from_pem(der) {
             Ok(certificate) => certificate,
-            Err(err) => return Err(Error::Other(err.to_string().into())),
+            Err(err) => return Err(Error::Other(err.to_string().into()))
         };
         Ok(Certificate(Arc::new(inner)))
     }
@@ -208,7 +209,7 @@ pub struct Options {
     pub(crate) readonly: Option<u8>,
 
     /// Comma separated list of single address host for load-balancing.
-    pub(crate) alt_hosts: Vec<Url>,
+    pub(crate) alt_hosts: Vec<Url>
 }
 
 impl fmt::Debug for Options {
@@ -259,7 +260,7 @@ impl Default for Options {
             #[cfg(feature = "tls")]
             certificate: None,
             readonly: None,
-            alt_hosts: Vec::new(),
+            alt_hosts: Vec::new()
         }
     }
 }
@@ -287,9 +288,7 @@ macro_rules! property {
 impl Options {
     /// Constructs a new Options.
     pub fn new<A>(addr: A) -> Self
-    where
-        A: Into<Url>,
-    {
+    where A: Into<Url> {
         Self {
             addr: addr.into(),
             ..Self::default()
@@ -421,7 +420,7 @@ fn from_url(url_str: &str) -> Result<Options> {
 
     if url.scheme() != "tcp" {
         return Err(UrlError::UnsupportedScheme {
-            scheme: url.scheme().to_string(),
+            scheme: url.scheme().to_string()
         }
         .into());
     }
@@ -458,9 +457,7 @@ fn from_url(url_str: &str) -> Result<Options> {
 }
 
 fn set_params<'a, I>(options: &mut Options, iter: I) -> std::result::Result<(), UrlError>
-where
-    I: Iterator<Item = (Cow<'a, str>, Cow<'a, str>)>,
-{
+where I: Iterator<Item = (Cow<'a, str>, Cow<'a, str>)> {
     for (key, value) in iter {
         match key.as_ref() {
             "pool_min" => options.pool_min = parse_param(key, value, usize::from_str)?,
@@ -490,7 +487,7 @@ where
             "skip_verify" => options.skip_verify = parse_param(key, value, bool::from_str)?,
             "readonly" => options.readonly = parse_param(key, value, parse_opt_u8)?,
             "alt_hosts" => options.alt_hosts = parse_param(key, value, parse_hosts)?,
-            _ => return Err(UrlError::UnknownParameter { param: key.into() }),
+            _ => return Err(UrlError::UnknownParameter { param: key.into() })
         };
     }
 
@@ -500,17 +497,17 @@ where
 fn parse_param<'a, F, T, E>(
     param: Cow<'a, str>,
     value: Cow<'a, str>,
-    parse: F,
+    parse: F
 ) -> std::result::Result<T, UrlError>
 where
-    F: Fn(&str) -> std::result::Result<T, E>,
+    F: Fn(&str) -> std::result::Result<T, E>
 {
     match parse(value.as_ref()) {
         Ok(value) => Ok(value),
         Err(_) => Err(UrlError::InvalidParamValue {
             param: param.into(),
-            value: value.into(),
-        }),
+            value: value.into()
+        })
     }
 }
 
@@ -538,7 +535,7 @@ fn get_database_from_url(url: &Url) -> Result<Option<&str>> {
 
             match head {
                 Some(database) if !database.is_empty() => Ok(Some(database)),
-                _ => Ok(None),
+                _ => Ok(None)
             }
         }
     }
@@ -552,13 +549,13 @@ fn parse_duration(source: &str) -> std::result::Result<Duration, ()> {
 
     let num = match u64::from_str(&left) {
         Ok(value) => value,
-        Err(_) => return Err(()),
+        Err(_) => return Err(())
     };
 
     match right.as_str() {
         "s" => Ok(Duration::from_secs(num)),
         "ms" => Ok(Duration::from_millis(num)),
-        _ => Err(()),
+        _ => Err(())
     }
 }
 
@@ -578,7 +575,7 @@ fn parse_opt_u8(source: &str) -> std::result::Result<Option<u8>, ()> {
 
     let duration: u8 = match source.parse() {
         Ok(value) => value,
-        Err(_) => return Err(()),
+        Err(_) => return Err(())
     };
 
     Ok(Some(duration))
@@ -588,7 +585,7 @@ fn parse_compression(source: &str) -> std::result::Result<bool, ()> {
     match source {
         "none" => Ok(false),
         "lz4" => Ok(true),
-        _ => Err(()),
+        _ => Err(())
     }
 }
 
@@ -597,7 +594,7 @@ fn parse_hosts(source: &str) -> std::result::Result<Vec<Url>, ()> {
     for host in source.split(',') {
         match Url::from_str(&format!("tcp://{}", host)) {
             Ok(url) => result.push(url),
-            Err(_) => return Err(()),
+            Err(_) => return Err(())
         }
     }
     Ok(result)

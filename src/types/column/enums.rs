@@ -1,34 +1,41 @@
-use chrono_tz::Tz;
 use std::sync::Arc;
 
-use crate::{
-    binary::{Encoder, ReadEx},
-    errors::Result,
-    types::{
-        column::{
-            column_data::BoxColumnData, column_data::ColumnData, list::List,
-            nullable::NullableColumnData, BoxColumnWrapper, ColumnFrom, ColumnWrapper, Either,
-            VectorColumnData,
-        },
-        enums::{Enum16, Enum8},
-        from_sql::FromSql,
-        Column, ColumnType, SqlType, Value, ValueRef,
-    },
-};
+use chrono_tz::Tz;
+
+use crate::binary::Encoder;
+use crate::binary::ReadEx;
+use crate::errors::Result;
+use crate::types::column::column_data::BoxColumnData;
+use crate::types::column::column_data::ColumnData;
+use crate::types::column::list::List;
+use crate::types::column::nullable::NullableColumnData;
+use crate::types::column::BoxColumnWrapper;
+use crate::types::column::ColumnFrom;
+use crate::types::column::ColumnWrapper;
+use crate::types::column::Either;
+use crate::types::column::VectorColumnData;
+use crate::types::enums::Enum16;
+use crate::types::enums::Enum8;
+use crate::types::from_sql::FromSql;
+use crate::types::Column;
+use crate::types::ColumnType;
+use crate::types::SqlType;
+use crate::types::Value;
+use crate::types::ValueRef;
 
 pub(crate) struct Enum16ColumnData {
     pub(crate) enum_values: Vec<(String, i16)>,
-    pub(crate) inner: Box<dyn ColumnData + Send + Sync>,
+    pub(crate) inner: Box<dyn ColumnData + Send + Sync>
 }
 
 pub(crate) struct Enum16Adapter<K: ColumnType> {
     pub(crate) column: Column<K>,
-    pub(crate) enum_values: Vec<(String, i16)>,
+    pub(crate) enum_values: Vec<(String, i16)>
 }
 
 pub(crate) struct NullableEnum16Adapter<K: ColumnType> {
     pub(crate) column: Column<K>,
-    pub(crate) enum_values: Vec<(String, i16)>,
+    pub(crate) enum_values: Vec<(String, i16)>
 }
 
 impl Enum16ColumnData {
@@ -36,7 +43,7 @@ impl Enum16ColumnData {
         reader: &mut T,
         enum_values: Vec<(String, i16)>,
         size: usize,
-        tz: Tz,
+        tz: Tz
     ) -> Result<Self> {
         let type_name = "Int16";
 
@@ -76,7 +83,7 @@ impl ColumnData for Enum16ColumnData {
     fn clone_instance(&self) -> BoxColumnData {
         Box::new(Self {
             inner: self.inner.clone_instance(),
-            enum_values: self.enum_values.clone(),
+            enum_values: self.enum_values.clone()
         })
     }
 }
@@ -131,7 +138,7 @@ impl<K: ColumnType> ColumnData for NullableEnum16Adapter<K> {
             let value: Option<Enum16> = Option::from_sql(self.at(index)).unwrap();
             match value {
                 Some(v) => values[i] = Some(v.internal()),
-                None => nulls[i] = 1,
+                None => nulls[i] = 1
             }
         }
         encoder.write_bytes(nulls.as_ref());
@@ -177,7 +184,7 @@ impl ColumnFrom for Vec<Enum16> {
 
         let column = Enum16ColumnData {
             inner,
-            enum_values: vec![],
+            enum_values: vec![]
         };
 
         W::wrap(column)
@@ -202,29 +209,29 @@ impl ColumnFrom for Vec<Option<Enum16>> {
 
         let inner = Enum16ColumnData {
             enum_values: vec![],
-            inner,
+            inner
         };
 
         W::wrap(NullableColumnData {
             nulls,
-            inner: Arc::new(inner),
+            inner: Arc::new(inner)
         })
     }
 }
 
 pub(crate) struct Enum8ColumnData {
     pub(crate) enum_values: Vec<(String, i8)>,
-    pub(crate) inner: Box<dyn ColumnData + Send + Sync>,
+    pub(crate) inner: Box<dyn ColumnData + Send + Sync>
 }
 
 pub(crate) struct Enum8Adapter<K: ColumnType> {
     pub(crate) column: Column<K>,
-    pub(crate) enum_values: Vec<(String, i8)>,
+    pub(crate) enum_values: Vec<(String, i8)>
 }
 
 pub(crate) struct NullableEnum8Adapter<K: ColumnType> {
     pub(crate) column: Column<K>,
-    pub(crate) enum_values: Vec<(String, i8)>,
+    pub(crate) enum_values: Vec<(String, i8)>
 }
 
 impl Enum8ColumnData {
@@ -232,7 +239,7 @@ impl Enum8ColumnData {
         reader: &mut T,
         enum_values: Vec<(String, i8)>,
         size: usize,
-        tz: Tz,
+        tz: Tz
     ) -> Result<Self> {
         let type_name = "Int8";
 
@@ -272,7 +279,7 @@ impl ColumnData for Enum8ColumnData {
     fn clone_instance(&self) -> BoxColumnData {
         Box::new(Self {
             inner: self.inner.clone_instance(),
-            enum_values: self.enum_values.clone(),
+            enum_values: self.enum_values.clone()
         })
     }
 }
@@ -327,7 +334,7 @@ impl<K: ColumnType> ColumnData for NullableEnum8Adapter<K> {
             let value: Option<Enum8> = Option::from_sql(self.at(index)).unwrap();
             match value {
                 Some(v) => values[i] = Some(v.internal()),
-                None => nulls[i] = 1,
+                None => nulls[i] = 1
             }
         }
 
@@ -374,7 +381,7 @@ impl ColumnFrom for Vec<Enum8> {
 
         let column = Enum8ColumnData {
             inner,
-            enum_values: vec![],
+            enum_values: vec![]
         };
 
         W::wrap(column)
@@ -399,12 +406,12 @@ impl ColumnFrom for Vec<Option<Enum8>> {
 
         let inner = Enum8ColumnData {
             enum_values: vec![],
-            inner,
+            inner
         };
 
         W::wrap(NullableColumnData {
             nulls,
-            inner: Arc::new(inner),
+            inner: Arc::new(inner)
         })
     }
 }

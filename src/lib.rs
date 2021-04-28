@@ -1,17 +1,17 @@
-use crate::binary::{Encoder, ReadEx};
-use crate::types::{Block, ResultWriter};
+use std::sync::Arc;
 
-use crate::io::Stream;
 use chrono_tz::Tz;
-use errors::{DriverError, Error, Result};
+use errors::Result;
 use io::ClickhouseTransport;
 use log::debug;
 use log::error;
-use protocols::{
-    ExceptionResponse, HelloRequest, HelloResponse, Packet, QueryRequest, SERVER_END_OF_STREAM,
-};
 use tokio::net::TcpStream;
 use tokio_stream::StreamExt;
+
+use crate::io::block_stream::SendableDataBlockStream;
+use crate::io::Stream;
+use crate::types::Block;
+use crate::types::Progress;
 
 mod binary;
 pub mod error_codes;
@@ -23,8 +23,8 @@ pub mod types;
 #[macro_use]
 extern crate bitflags;
 
-pub trait ClickHouseSession {
-    fn execute_query(&self, query: &str, stage: u64, writer: &mut ResultWriter) -> Result<()>;
+pub trait ClickHouseSession: Send + Sync {
+    fn execute_query(&self, _: &mut QueryState) -> Result<QueryResponse>;
 
     fn with_stack_trace(&self) -> bool {
         false
@@ -58,9 +58,13 @@ pub trait ClickHouseSession {
     fn dbms_version_patch(&self) -> u64 {
         1
     }
+
+    fn get_progress(&self) -> Progress {
+        Progress::default()
+    }
 }
 
-#[derive(Default)]
+#[derive(Default, Clone)]
 pub struct QueryState {
     pub query_id: String,
     pub stage: u64,
@@ -71,7 +75,13 @@ pub struct QueryState {
     /// empty or not
     pub is_empty: bool,
     /// Data was sent.
-    pub sent_all_data: bool,
+    pub sent_all_data: bool
+}
+
+#[derive(Default)]
+pub struct QueryResponse {
+    pub input_stream: Option<SendableDataBlockStream>,
+    pub progress_stream: Option<SendableDataBlockStream>
 }
 
 impl QueryState {
@@ -84,18 +94,15 @@ impl QueryState {
     }
 }
 
-
-pub struct CHContext<S> {
+#[derive(Clone)]
+pub struct CHContext {
     pub state: QueryState,
-    pub session: S,
+    pub session: Arc<dyn ClickHouseSession>
 }
 
-impl<S: ClickHouseSession> CHContext<S> {
-    fn new(state: QueryState, session: S) -> Self {
-        Self {
-            state,
-            session,
-        }
+impl CHContext {
+    fn new(state: QueryState, session: Arc<dyn ClickHouseSession>) -> Self {
+        Self { state, session }
     }
 }
 
@@ -104,26 +111,22 @@ impl<S: ClickHouseSession> CHContext<S> {
 pub struct ClickHouseServer {}
 
 impl ClickHouseServer {
-    pub async fn run_on_stream<S>(session: S, stream: TcpStream) -> Result<()>
-        where
-            S: ClickHouseSession {
+    pub async fn run_on_stream(
+        session: Arc<dyn ClickHouseSession>,
+        stream: TcpStream
+    ) -> Result<()> {
         ClickHouseServer::run_on(session, stream.into()).await
     }
 }
 
 impl ClickHouseServer {
-    async fn run_on<S>(session: S, stream: Stream) -> Result<()>
-        where
-            S: ClickHouseSession {
+    async fn run_on(session: Arc<dyn ClickHouseSession>, stream: Stream) -> Result<()> {
         let mut srv = ClickHouseServer {};
-
         srv.run(session, stream).await?;
         Ok(())
     }
 
-    async fn run<S>(&mut self, session: S, stream: Stream) -> Result<()>
-        where
-            S: ClickHouseSession {
+    async fn run(&mut self, session: Arc<dyn ClickHouseSession>, stream: Stream) -> Result<()> {
         debug!("Handle New session");
         let tz: Tz = session.timezone().parse()?;
         let ctx = CHContext::new(QueryState::default(), session);
@@ -131,13 +134,11 @@ impl ClickHouseServer {
 
         while let Some(ret) = transport.next().await {
             match ret {
-                Ok(()) => {
-                    debug!("Ready one");
-                },
                 Err(e) => {
                     error!("Error in {:?}", e);
                     break;
                 }
+                _ => {}
             }
         }
         debug!("Exited one session");

@@ -1,18 +1,20 @@
-use std::{fmt, mem, slice};
+use std::fmt;
+use std::mem;
+use std::slice;
 
-use crate::types::{Marshal, StatBuffer, Unmarshal};
+use crate::types::Marshal;
+use crate::types::StatBuffer;
+use crate::types::Unmarshal;
 
 #[derive(Clone)]
 pub struct List<T>
-where
-    T: StatBuffer + Unmarshal<T> + Marshal + Copy + Sync + 'static,
+where T: StatBuffer + Unmarshal<T> + Marshal + Copy + Sync + 'static
 {
-    data: Vec<T>,
+    data: Vec<T>
 }
 
 impl<T> List<T>
-where
-    T: StatBuffer + Unmarshal<T> + Marshal + Copy + Sync + 'static,
+where T: StatBuffer + Unmarshal<T> + Marshal + Copy + Sync + 'static
 {
     pub fn len(&self) -> usize {
         self.data.len()
@@ -33,7 +35,7 @@ where
 
     pub fn with_capacity(capacity: usize) -> List<T> {
         Self {
-            data: Vec::with_capacity(capacity),
+            data: Vec::with_capacity(capacity)
         }
     }
 
@@ -51,8 +53,7 @@ where
 }
 
 impl<T> fmt::Debug for List<T>
-where
-    T: StatBuffer + Unmarshal<T> + Marshal + Copy + Sync + 'static + fmt::Debug,
+where T: StatBuffer + Unmarshal<T> + Marshal + Copy + Sync + 'static + fmt::Debug
 {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "{:?}", self.data)
@@ -60,8 +61,7 @@ where
 }
 
 impl<T> AsRef<[u8]> for List<T>
-where
-    T: StatBuffer + Unmarshal<T> + Marshal + Copy + Sync + 'static,
+where T: StatBuffer + Unmarshal<T> + Marshal + Copy + Sync + 'static
 {
     fn as_ref(&self) -> &[u8] {
         let ptr = self.data.as_ptr() as *const u8;
@@ -71,8 +71,7 @@ where
 }
 
 impl<T> AsMut<[u8]> for List<T>
-where
-    T: StatBuffer + Unmarshal<T> + Marshal + Copy + Sync + 'static,
+where T: StatBuffer + Unmarshal<T> + Marshal + Copy + Sync + 'static
 {
     fn as_mut(&mut self) -> &mut [u8] {
         let ptr = self.data.as_mut_ptr() as *mut u8;
@@ -83,10 +82,11 @@ where
 
 #[cfg(test)]
 mod test {
+    use std::f64::EPSILON;
+
     use rand::random;
 
     use super::*;
-    use std::f64::EPSILON;
 
     #[test]
     fn test_push_and_len() {

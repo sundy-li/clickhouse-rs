@@ -1,29 +1,33 @@
+use std::ptr;
+use std::slice;
+use std::sync::Arc;
+
 use chrono::prelude::*;
 use chrono_tz::Tz;
-use std::{ptr, slice, sync::Arc};
 
-use crate::{
-    binary::Encoder,
-    errors::Result,
-    types::{
-        column::{
-            column_data::{ArcColumnData, BoxColumnData, ColumnData},
-            datetime64::from_datetime,
-            nullable::NullableColumnData,
-            ArcColumnWrapper, ColumnFrom, ColumnWrapper, SqlType, Value, ValueRef,
-        },
-        DateTimeType,
-    },
-};
+use crate::binary::Encoder;
+use crate::errors::Result;
+use crate::types::column::column_data::ArcColumnData;
+use crate::types::column::column_data::BoxColumnData;
+use crate::types::column::column_data::ColumnData;
+use crate::types::column::datetime64::from_datetime;
+use crate::types::column::nullable::NullableColumnData;
+use crate::types::column::ArcColumnWrapper;
+use crate::types::column::ColumnFrom;
+use crate::types::column::ColumnWrapper;
+use crate::types::column::SqlType;
+use crate::types::column::Value;
+use crate::types::column::ValueRef;
+use crate::types::DateTimeType;
 
 pub struct ChronoDateTimeColumnData {
     data: Vec<DateTime<Tz>>,
-    tz: Tz,
+    tz: Tz
 }
 
 pub(crate) struct ChronoDateTimeAdapter {
     pub(crate) column: ArcColumnData,
-    dst_type: SqlType,
+    dst_type: SqlType
 }
 
 impl ChronoDateTimeAdapter {
@@ -70,7 +74,7 @@ impl ColumnFrom for Vec<Option<DateTime<Tz>>> {
 
         W::wrap(NullableColumnData {
             inner: Vec::column_from::<ArcColumnWrapper>(values),
-            nulls,
+            nulls
         })
     }
 }
@@ -101,7 +105,7 @@ impl ColumnData for ChronoDateTimeColumnData {
     fn clone_instance(&self) -> BoxColumnData {
         Box::new(Self {
             data: self.data.clone(),
-            tz: self.tz,
+            tz: self.tz
         })
     }
 
@@ -138,9 +142,9 @@ pub(crate) fn get_date_slice<'a>(column: &dyn ColumnData) -> Result<&'a [DateTim
             &[
                 &mut data as *mut *const DateTime<Tz> as *mut *const u8,
                 &mut tz as *mut *const Tz as *mut *const u8,
-                &mut len as *mut usize as *mut *const u8,
+                &mut len as *mut usize as *mut *const u8
             ],
-            0,
+            0
         )?;
         assert_ne!(data, ptr::null());
         assert_ne!(tz, ptr::null());
@@ -173,7 +177,7 @@ impl ColumnData for ChronoDateTimeAdapter {
                     encoder.write(value);
                 }
             }
-            _ => unimplemented!(),
+            _ => unimplemented!()
         }
     }
 

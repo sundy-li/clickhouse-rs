@@ -1,9 +1,8 @@
 use std::io::Read;
 
+use super::*;
 use crate::binary::ReadEx;
 use crate::errors::Result;
-
-use super::*;
 
 const TCP: u8 = 1;
 const HTTP: u8 = 2;
@@ -31,13 +30,11 @@ pub struct QueryClientInfo {
     pub http_method: u8,
     pub http_user_agent: String,
 
-    pub quota_key: String,
+    pub quota_key: String
 }
 
 impl QueryClientInfo {
-    pub fn read_from<R: Read>(
-        reader: &mut R,
-    ) -> Result<QueryClientInfo> {
+    pub fn read_from<R: Read>(reader: &mut R) -> Result<QueryClientInfo> {
         let mut client_info = QueryClientInfo {
             query_kind: reader.read_scalar()?,
             ..Default::default()
@@ -99,13 +96,13 @@ pub struct QueryRequest {
     pub(crate) client_info: QueryClientInfo,
     pub(crate) stage: u64,
     pub(crate) compression: u64,
-    pub(crate) query: String,
+    pub(crate) query: String
 }
 
 impl QueryRequest {
     pub fn read_from<R: Read>(
         reader: &mut R,
-        hello_request: &HelloRequest,
+        hello_request: &HelloRequest
     ) -> Result<QueryRequest> {
         let query_id = reader.read_string()?;
 
@@ -147,7 +144,7 @@ impl QueryRequest {
             client_info,
             stage: reader.read_uvarint()?,
             compression: reader.read_uvarint()?,
-            query: reader.read_string()?,
+            query: reader.read_string()?
         };
 
         Ok(query_protocol)

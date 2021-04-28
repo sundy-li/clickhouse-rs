@@ -1,25 +1,28 @@
-use std::{convert, mem, sync::Arc};
+use std::convert;
+use std::mem;
+use std::sync::Arc;
 
-use crate::{
-    binary::{Encoder, ReadEx},
-    errors::Result,
-    types::{
-        column::{
-            array::ArrayColumnData, nullable::NullableColumnData, ArcColumnWrapper, ColumnWrapper,
-        },
-        HasSqlType, Marshal, SqlType, StatBuffer, Unmarshal, Value, ValueRef,
-    },
-};
-
-use super::{
-    column_data::{BoxColumnData, ColumnData},
-    list::List,
-    ColumnFrom,
-};
+use super::column_data::BoxColumnData;
+use super::column_data::ColumnData;
+use super::list::List;
+use super::ColumnFrom;
+use crate::binary::Encoder;
+use crate::binary::ReadEx;
+use crate::errors::Result;
+use crate::types::column::array::ArrayColumnData;
+use crate::types::column::nullable::NullableColumnData;
+use crate::types::column::ArcColumnWrapper;
+use crate::types::column::ColumnWrapper;
+use crate::types::HasSqlType;
+use crate::types::Marshal;
+use crate::types::SqlType;
+use crate::types::StatBuffer;
+use crate::types::Unmarshal;
+use crate::types::Value;
+use crate::types::ValueRef;
 
 pub struct VectorColumnData<T>
-where
-    T: StatBuffer
+where T: StatBuffer
         + Unmarshal<T>
         + Marshal
         + Copy
@@ -27,14 +30,13 @@ where
         + convert::From<Value>
         + Sync
         + HasSqlType
-        + 'static,
+        + 'static
 {
-    pub(crate) data: List<T>,
+    pub(crate) data: List<T>
 }
 
 impl<T> ColumnFrom for Vec<T>
-where
-    T: StatBuffer
+where T: StatBuffer
         + Unmarshal<T>
         + Marshal
         + Copy
@@ -43,7 +45,7 @@ where
         + Send
         + Sync
         + HasSqlType
-        + 'static,
+        + 'static
 {
     fn column_from<W: ColumnWrapper>(source: Self) -> W::Wrapper {
         let mut data = List::with_capacity(source.len());
@@ -66,7 +68,7 @@ where
         + Send
         + Sync
         + HasSqlType
-        + 'static,
+        + 'static
 {
     fn column_from<W: ColumnWrapper>(source: Self) -> W::Wrapper {
         let fake: Vec<T> = Vec::with_capacity(source.len());
@@ -74,7 +76,7 @@ where
 
         let mut data = NullableColumnData {
             inner,
-            nulls: Vec::with_capacity(source.len()),
+            nulls: Vec::with_capacity(source.len())
         };
 
         for value in source {
@@ -97,7 +99,7 @@ where
         + Send
         + Sync
         + HasSqlType
-        + 'static,
+        + 'static
 {
     fn column_from<W: ColumnWrapper>(source: Self) -> W::Wrapper {
         let fake: Vec<T> = Vec::with_capacity(source.len());
@@ -106,7 +108,7 @@ where
 
         let mut data = ArrayColumnData {
             inner,
-            offsets: List::with_capacity(source.len()),
+            offsets: List::with_capacity(source.len())
         };
 
         for array in source {
@@ -129,7 +131,7 @@ where
         + Send
         + Sync
         + HasSqlType
-        + 'static,
+        + 'static
 {
     let mut inner = Vec::with_capacity(vs.len());
     for v in vs {
@@ -140,8 +142,7 @@ where
 }
 
 impl<T> VectorColumnData<T>
-where
-    T: StatBuffer
+where T: StatBuffer
         + Unmarshal<T>
         + Marshal
         + Copy
@@ -149,11 +150,11 @@ where
         + convert::From<Value>
         + Sync
         + HasSqlType
-        + 'static,
+        + 'static
 {
     pub(crate) fn with_capacity(capacity: usize) -> VectorColumnData<T> {
         VectorColumnData {
-            data: List::with_capacity(capacity),
+            data: List::with_capacity(capacity)
         }
     }
 
@@ -168,8 +169,7 @@ where
 }
 
 impl<T> ColumnData for VectorColumnData<T>
-where
-    T: StatBuffer
+where T: StatBuffer
         + Unmarshal<T>
         + Marshal
         + Copy
@@ -178,7 +178,7 @@ where
         + Send
         + Sync
         + HasSqlType
-        + 'static,
+        + 'static
 {
     fn sql_type(&self) -> SqlType {
         T::sql_type()
@@ -212,13 +212,13 @@ where
             Value::Float32(x) => ValueRef::Float32(x),
             Value::Float64(x) => ValueRef::Float64(x),
 
-            _ => panic!("can't convert value to value_ref."),
+            _ => panic!("can't convert value to value_ref.")
         }
     }
 
     fn clone_instance(&self) -> BoxColumnData {
         Box::new(Self {
-            data: self.data.clone(),
+            data: self.data.clone()
         })
     }
 

@@ -26,9 +26,11 @@ hostname = "^0.3"
 lz4 = "1.23.2"
 combine = "4.2.3"
 pin-project = "1.0.4"
+bytes = "1.0.0"
 uuid = "0.8.1"
 tokio-stream = "0.1"
 async-trait = "0.1.48"
+
 
 [dependencies.clickhouse-rs-cityhash-sys]
 path = "clickhouse-rs-cityhash-sys"
@@ -43,8 +45,13 @@ features = [ "std" ]
 [dependencies.tokio]
 version = "1.0"
 default-features = false
-features = ["io-util", "time", "net", "sync", "rt-multi-thread", "macros", "rt"]
+features = ["full"]
 optional = true
+
+
+[dependencies.tokio-util]
+version = "0.6.6"
+features = ["full"]
 
 [dependencies.futures-util]
 version = "0.3.12"

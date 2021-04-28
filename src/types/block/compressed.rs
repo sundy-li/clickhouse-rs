@@ -1,36 +1,35 @@
-use std::{
-    io,
-    io::Read,
-    mem,
-    os::raw::{c_char, c_int},
-};
+use std::io;
+use std::io::Read;
+use std::mem;
+use std::os::raw::c_char;
+use std::os::raw::c_int;
 
-use byteorder::{LittleEndian, WriteBytesExt};
-use clickhouse_rs_cityhash_sys::{city_hash_128, UInt128};
+use byteorder::LittleEndian;
+use byteorder::WriteBytesExt;
+use clickhouse_rs_cityhash_sys::city_hash_128;
+use clickhouse_rs_cityhash_sys::UInt128;
 use lz4::liblz4::LZ4_decompress_safe;
 
-use crate::{
-    binary::ReadEx,
-    errors::{Error, Result},
-};
+use crate::binary::ReadEx;
+use crate::errors::Error;
+use crate::errors::Result;
 
 const DBMS_MAX_COMPRESSED_SIZE: u32 = 0x4000_0000; // 1GB
 
 pub(crate) struct CompressedReader<'a, R> {
     reader: &'a mut R,
-    cursor: io::Cursor<Vec<u8>>,
+    cursor: io::Cursor<Vec<u8>>
 }
 
 pub(crate) fn make<R>(reader: &mut R) -> CompressedReader<R> {
     CompressedReader {
         reader,
-        cursor: io::Cursor::new(Vec::new()),
+        cursor: io::Cursor::new(Vec::new())
     }
 }
 
 impl<'a, R> CompressedReader<'a, R>
-where
-    R: Read + ReadEx,
+where R: Read + ReadEx
 {
     fn is_empty(&self) -> bool {
         let len = self.cursor.get_ref().len();
@@ -49,8 +48,7 @@ where
 }
 
 impl<'a, R> Read for CompressedReader<'a, R>
-where
-    R: Read + ReadEx,
+where R: Read + ReadEx
 {
     fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
         if self.is_empty() {
@@ -62,12 +60,10 @@ where
 }
 
 fn decompress_buffer<R>(reader: &mut R, mut buffer: Vec<u8>) -> Result<Vec<u8>>
-where
-    R: ReadEx,
-{
+where R: ReadEx {
     let h = UInt128 {
         lo: reader.read_scalar()?,
-        hi: reader.read_scalar()?,
+        hi: reader.read_scalar()?
     };
 
     let method: u8 = reader.read_scalar()?;
@@ -102,7 +98,7 @@ where
             (buffer.as_mut_ptr() as *const c_char).add(9),
             data.as_ptr() as *mut c_char,
             (compressed - 9) as c_int,
-            original as c_int,
+            original as c_int
         )
     };
 

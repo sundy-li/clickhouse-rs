@@ -1,11 +1,12 @@
 use std::cmp;
 
-use crate::types::{Block, ColumnType};
+use crate::types::Block;
+use crate::types::ColumnType;
 
 pub struct ChunkIterator<'a, K: ColumnType> {
     position: usize,
     size: usize,
-    block: &'a Block<K>,
+    block: &'a Block<K>
 }
 
 impl<'a, K: ColumnType> Iterator for ChunkIterator<'a, K> {
@@ -42,7 +43,7 @@ impl<'a, K: ColumnType> ChunkIterator<'a, K> {
         ChunkIterator {
             position: 0,
             size,
-            block,
+            block
         }
     }
 }

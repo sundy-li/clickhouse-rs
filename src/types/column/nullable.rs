@@ -1,22 +1,22 @@
 use std::sync::Arc;
 
-use crate::{
-    binary::{Encoder, ReadEx},
-    errors::Result,
-    types::{
-        column::{
-            column_data::{ArcColumnData, BoxColumnData},
-            ArcColumnWrapper, ColumnData, Either,
-        },
-        SqlType, Value, ValueRef,
-    },
-};
-
 use chrono_tz::Tz;
+
+use crate::binary::Encoder;
+use crate::binary::ReadEx;
+use crate::errors::Result;
+use crate::types::column::column_data::ArcColumnData;
+use crate::types::column::column_data::BoxColumnData;
+use crate::types::column::ArcColumnWrapper;
+use crate::types::column::ColumnData;
+use crate::types::column::Either;
+use crate::types::SqlType;
+use crate::types::Value;
+use crate::types::ValueRef;
 
 pub(crate) struct NullableColumnData {
     pub(crate) inner: ArcColumnData,
-    pub(crate) nulls: Vec<u8>,
+    pub(crate) nulls: Vec<u8>
 }
 
 impl NullableColumnData {
@@ -24,7 +24,7 @@ impl NullableColumnData {
         reader: &mut R,
         type_name: &str,
         size: usize,
-        tz: Tz,
+        tz: Tz
     ) -> Result<Self> {
         let mut nulls = vec![0; size];
         reader.read_bytes(nulls.as_mut())?;
@@ -85,7 +85,7 @@ impl ColumnData for NullableColumnData {
     fn clone_instance(&self) -> BoxColumnData {
         Box::new(Self {
             inner: self.inner.clone(),
-            nulls: self.nulls.clone(),
+            nulls: self.nulls.clone()
         })
     }
 
@@ -104,7 +104,7 @@ impl ColumnData for NullableColumnData {
             if let Some(inner) = self.inner.cast_to(&self.inner, inner_target) {
                 return Some(Arc::new(NullableColumnData {
                     inner,
-                    nulls: self.nulls.clone(),
+                    nulls: self.nulls.clone()
                 }));
             }
         }

@@ -1,34 +1,41 @@
-use std::{
-    cmp,
-    default::Default,
-    fmt,
-    io::{Cursor, Read},
-    marker::PhantomData,
-    os::raw::c_char,
-};
+use std::cmp;
+use std::default::Default;
+use std::fmt;
+use std::io::Cursor;
+use std::io::Read;
+use std::marker::PhantomData;
+use std::os::raw::c_char;
 
-use byteorder::{LittleEndian, WriteBytesExt};
+use byteorder::LittleEndian;
+use byteorder::WriteBytesExt;
 use chrono_tz::Tz;
 use clickhouse_rs_cityhash_sys::city_hash_128;
-use lz4::liblz4::{LZ4_compressBound, LZ4_compress_default};
+use lz4::liblz4::LZ4_compressBound;
+use lz4::liblz4::LZ4_compress_default;
 
-use crate::{
-    binary::{Encoder, ReadEx},
-    errors::{Error, FromSqlError, Result},
-    protocols,
-    types::{
-        column::{self, ArcColumnWrapper, Column, ColumnFrom},
-        ColumnType, Complex, FromSql, Simple, SqlType,
-    },
-};
-
+pub use self::block_info::BlockInfo;
+pub use self::builder::RCons;
+pub use self::builder::RNil;
+pub use self::builder::RowBuilder;
 use self::chunk_iterator::ChunkIterator;
 pub(crate) use self::row::BlockRef;
-pub use self::{
-    block_info::BlockInfo,
-    builder::{RCons, RNil, RowBuilder},
-    row::{Row, Rows},
-};
+pub use self::row::Row;
+pub use self::row::Rows;
+use crate::binary::Encoder;
+use crate::binary::ReadEx;
+use crate::errors::Error;
+use crate::errors::FromSqlError;
+use crate::errors::Result;
+use crate::protocols;
+use crate::types::column::ArcColumnWrapper;
+use crate::types::column::Column;
+use crate::types::column::ColumnFrom;
+use crate::types::column::{self};
+use crate::types::ColumnType;
+use crate::types::Complex;
+use crate::types::FromSql;
+use crate::types::Simple;
+use crate::types::SqlType;
 
 mod block_info;
 mod builder;
@@ -77,7 +84,7 @@ sliceable! {
 pub struct Block<K: ColumnType = Simple> {
     info: BlockInfo,
     columns: Vec<Column<K>>,
-    capacity: usize,
+    capacity: usize
 }
 
 impl<L: ColumnType, R: ColumnType> PartialEq<Block<R>> for Block<L> {
@@ -101,7 +108,7 @@ impl<K: ColumnType> Clone for Block<K> {
         Self {
             info: self.info,
             columns: self.columns.iter().map(|c| (*c).clone()).collect(),
-            capacity: self.capacity,
+            capacity: self.capacity
         }
     }
 }
@@ -127,7 +134,7 @@ impl<'a> ColumnIdx for &'a str {
             .find(|(_, column)| column.name() == *self)
         {
             None => Err(Error::FromSql(FromSqlError::OutOfRange)),
-            Some((index, _)) => Ok(index),
+            Some((index, _)) => Ok(index)
         }
     }
 }
@@ -149,14 +156,12 @@ impl Block {
         Self {
             info: Default::default(),
             columns: vec![],
-            capacity,
+            capacity
         }
     }
 
     pub(crate) fn load<R>(reader: &mut R, tz: Tz, compress: bool) -> Result<Self>
-    where
-        R: Read + ReadEx,
-    {
+    where R: Read + ReadEx {
         if compress {
             let mut cr = compressed::make(reader);
             Self::raw_load(&mut cr, tz)
@@ -166,9 +171,7 @@ impl Block {
     }
 
     fn raw_load<R>(reader: &mut R, tz: Tz) -> Result<Block<Simple>>
-    where
-        R: ReadEx,
-    {
+    where R: ReadEx {
         let mut block = Block::new();
         block.info = BlockInfo::read(reader)?;
 
@@ -189,7 +192,7 @@ impl<K: ColumnType> Block<K> {
     pub fn row_count(&self) -> usize {
         match self.columns.first() {
             None => 0,
-            Some(column) => column.len(),
+            Some(column) => column.len()
         }
     }
 
@@ -218,7 +221,7 @@ impl<K: ColumnType> Block<K> {
     pub fn get<'a, T, I>(&'a self, row: usize, col: I) -> Result<T>
     where
         T: FromSql<'a>,
-        I: ColumnIdx + Copy,
+        I: ColumnIdx + Copy
     {
         let column_index = col.get_index(self.columns())?;
         T::from_sql(self.columns[column_index].at(row))
@@ -226,17 +229,13 @@ impl<K: ColumnType> Block<K> {
 
     /// Add new column into this block
     pub fn add_column<S>(self, name: &str, values: S) -> Self
-    where
-        S: ColumnFrom,
-    {
+    where S: ColumnFrom {
         self.column(name, values)
     }
 
     /// Add new column into this block
     pub fn column<S>(mut self, name: &str, values: S) -> Self
-    where
-        S: ColumnFrom,
-    {
+    where S: ColumnFrom {
         let data = S::column_from::<ArcColumnWrapper>(values);
         let column = column::new_column(name, data);
 
@@ -254,7 +253,7 @@ impl<K: ColumnType> Block<K> {
         Rows {
             row: 0,
             block_ref: BlockRef::Borrowed(self),
-            kind: PhantomData,
+            kind: PhantomData
         }
     }
 
@@ -265,9 +264,7 @@ impl<K: ColumnType> Block<K> {
 
     /// This method finds a column by identifier.
     pub fn get_column<I>(&self, col: I) -> Result<&Column<K>>
-    where
-        I: ColumnIdx + Copy,
-    {
+    where I: ColumnIdx + Copy {
         let column_index = col.get_index(self.columns())?;
         let column = &self.columns[column_index];
         Ok(column)
@@ -296,7 +293,7 @@ impl Block<Simple> {
         Block {
             info: first.info,
             columns,
-            capacity: blocks.iter().map(|b| b.capacity).sum(),
+            capacity: blocks.iter().map(|b| b.capacity).sum()
         }
     }
 }
@@ -322,7 +319,7 @@ impl<K: ColumnType> Block<K> {
         Ok(Block {
             info,
             columns: new_columns,
-            capacity: self.capacity,
+            capacity: self.capacity
         })
     }
 
@@ -340,7 +337,7 @@ impl<K: ColumnType> Block<K> {
                     tmp.as_ptr() as *const c_char,
                     (buf.as_mut_ptr() as *mut c_char).add(9),
                     tmp.len() as i32,
-                    buf.len() as i32,
+                    buf.len() as i32
                 );
             }
             buf.resize(9 + size as usize, 0_u8);
@@ -435,7 +432,7 @@ fn print_line(
     lens: &[usize],
     left: &str,
     center: char,
-    right: &str,
+    right: &str
 ) -> fmt::Result {
     write!(f, "{}", left)?;
     for (i, len) in lens.iter().enumerate() {
@@ -503,7 +500,7 @@ mod test {
         let mut cursor = Cursor::new(&source[..]);
         match Block::<Simple>::load(&mut cursor, Tz::Zulu, false) {
             Ok(block) => assert!(block.is_empty()),
-            Err(_) => unreachable!(),
+            Err(_) => unreachable!()
         }
     }
 
@@ -550,13 +547,10 @@ mod test {
     }
 
     fn make_block() -> Block {
-        Block::new().column(
-            "9b96ad8b-488a-4fef-8087-8a9ae4800f00",
-            vec![
-                "5446d186-4e90-4dd8-8ec1-f9a436834613".to_string(),
-                "f7cf31f4-7f37-4e27-91c0-5ac0ad0b145b".to_string(),
-            ],
-        )
+        Block::new().column("9b96ad8b-488a-4fef-8087-8a9ae4800f00", vec![
+            "5446d186-4e90-4dd8-8ec1-f9a436834613".to_string(),
+            "f7cf31f4-7f37-4e27-91c0-5ac0ad0b145b".to_string(),
+        ])
     }
 
     #[test]

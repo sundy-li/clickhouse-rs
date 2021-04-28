@@ -1,32 +1,47 @@
-use std::{
-    io::{self, Cursor},
-    pin::Pin,
-    ptr,
-    task::{self, Poll},
-};
+use std::io::Cursor;
+use std::pin::Pin;
+use std::ptr;
+use std::sync::mpsc::channel;
+use std::sync::mpsc::Receiver;
+use std::sync::Arc;
+use std::sync::Mutex;
+use std::task::Poll;
+use std::task::{self};
+use std::thread;
+use std::time::Duration;
+use std::time::Instant;
 
 use chrono_tz::Tz;
+use futures::executor::block_on;
 use futures::stream::Stream;
 use futures::StreamExt;
-
-use log::trace;
 use log::debug;
-
 use pin_project::pin_project;
 
-use crate::{binary::Parser, errors::{DriverError, Error, Result}, io::{read_to_end::read_to_end, Stream as InnerStream}, protocols::Packet, protocols, ClickHouseSession, CHContext};
 use crate::binary::Encoder;
-use std::io::Write;
-use crate::protocols::{SERVER_PONG, HelloResponse, HelloRequest, ExceptionResponse, SERVER_END_OF_STREAM};
-use crate::types::ResultWriter;
+use crate::binary::Parser;
+use crate::errors::DriverError;
+use crate::errors::Error;
+use crate::errors::Result;
+use crate::io::read_to_end::read_buf;
+use crate::io::Stream as InnerStream;
+use crate::protocols::ExceptionResponse;
+use crate::protocols::HelloRequest;
+use crate::protocols::HelloResponse;
+use crate::protocols::Packet;
+use crate::protocols::SERVER_END_OF_STREAM;
+use crate::protocols::SERVER_PONG;
+use crate::CHContext;
+
+const INTERACTIVE_DALAY: Duration = Duration::from_millis(10);
 
 /// Line transport
 #[pin_project(project = ClickhouseTransportProj)]
-pub struct ClickhouseTransport<S> {
+pub struct ClickhouseTransport {
     // Inner socket
     #[pin]
     inner: InnerStream,
-    ctx: CHContext<S>,
+    ctx: CHContext,
     // Set to true when inner.read returns Ok(0);
     done: bool,
     // Buffered read data
@@ -34,72 +49,64 @@ pub struct ClickhouseTransport<S> {
     // Whether the buffer is known to be incomplete
     buf_is_incomplete: bool,
     // Current buffer to write to the socket
-    wr: io::Cursor<Vec<u8>>,
+    wr_stream: Option<Receiver<Result<Vec<u8>>>>,
     // Server time zone
     timezone: Tz,
     // Whether there are unread packets
     pub(crate) inconsistent: bool,
 
     hello: Option<HelloRequest>,
+    client_revision: u64,
+
+    send_progress_time: Arc<Mutex<Instant>>
 }
 
-impl<S: ClickHouseSession> ClickhouseTransport<S> {
-    pub fn new(ctx: CHContext<S>, inner: InnerStream, timezone: Tz) -> Self {
+impl ClickhouseTransport {
+    pub fn new(ctx: CHContext, inner: InnerStream, timezone: Tz) -> Self {
         ClickhouseTransport {
             inner,
             ctx,
             done: false,
             rd: vec![],
             buf_is_incomplete: false,
-            wr: io::Cursor::new(vec![]),
+            wr_stream: None,
             timezone,
             inconsistent: false,
             hello: None,
+            client_revision: 0,
+
+            send_progress_time: Arc::new(Mutex::new(Instant::now()))
         }
     }
 }
 
-impl<'p, S: ClickHouseSession> ClickhouseTransportProj<'p, S> {
-    fn wr_is_empty(&self) -> bool {
-        self.wr_remaining() == 0
-    }
-
-    fn wr_remaining(&self) -> usize {
-        self.wr.get_ref().len() - self.wr_pos()
-    }
-
-    fn wr_pos(&self) -> usize {
-        self.wr.position() as usize
-    }
-
-    fn wr_flush(&mut self, cx: &mut task::Context) -> io::Result<bool> {
-        // Making the borrow checker happy
-        let res = {
-            let buf = {
-                let pos = self.wr.position() as usize;
-                let buf = &self.wr.get_ref()[pos..];
-
-                debug!("writing; remaining size: {}  = {:?}", buf.len(), buf);
-                buf
-            };
-
-            self.inner.as_mut().poll_write(cx, buf)
-        };
-
-        match res {
-            Poll::Ready(Ok(mut n)) => {
-                debug!("transport flush {:?}", n);
-
-                n += self.wr.position() as usize;
-                self.wr.set_position(n as u64);
-                Ok(true)
+impl<'p> ClickhouseTransportProj<'p> {
+    fn wr_flush(&mut self, cx: &mut task::Context) -> Poll<Option<Result<()>>> {
+        if let Some(stream) = &*self.wr_stream {
+            for item in stream {
+                match item {
+                    Ok(v) => {
+                        let size = v.len();
+                        loop {
+                            let res = self.inner.as_mut().poll_write(cx, &v);
+                            match res {
+                                Poll::Ready(Ok(n)) if n == size => {
+                                    break;
+                                }
+                                Poll::Ready(Err(e)) => {
+                                    return Poll::Ready(Some(Err(e.into())));
+                                }
+                                _ => continue
+                            }
+                        }
+                    }
+                    Err(e) => {
+                        return Poll::Ready(Some(Err(e.into())));
+                    }
+                }
             }
-            Poll::Ready(Err(e)) => {
-                debug!("transport flush error; err={:?}", e);
-                Err(e)
-            }
-            Poll::Pending => Ok(false),
         }
+        Poll::Ready(Some(Ok(())))
     }
 
     fn try_parse_msg(&mut self) -> Result<Packet> {
@@ -107,7 +114,7 @@ impl<'p, S: ClickHouseSession> ClickhouseTransportProj<'p, S> {
 
         let mut cursor = Cursor::new(&self.rd);
         let ret = {
-            let mut parser = Parser::new(&mut cursor, self.timezone.clone());
+            let mut parser = Parser::new(&mut cursor, *self.timezone);
             parser.parse_packet(self.hello, self.ctx.state.compression > 0)
         };
         pos = cursor.position() as usize;
@@ -126,17 +133,22 @@ impl<'p, S: ClickHouseSession> ClickhouseTransportProj<'p, S> {
         ret
     }
 
-    fn response(&mut self, packet: Packet) -> Result<()> {
+    // return Ok(true) if it's totally consumed
+    fn response(&mut self, packet: Packet) -> Result<bool> {
+        self.ctx.state.reset();
+        let (sender, receiver) = channel();
+        *self.wr_stream = Some(receiver);
+
         let mut encoder = Encoder::new();
         debug!("Got packet {:?}", packet);
-        match packet {
+        let ret = match packet {
             Packet::Ping => {
-                encoder.uvarint(protocols::SERVER_PONG);
+                encoder.uvarint(SERVER_PONG);
+                true
             }
             // todo cancel
-            Packet::Cancel => {
-            }
-            Packet::Hello(hello) => {
+            Packet::Cancel => true,
+            Packet::Hello(mut hello) => {
                 let response = HelloResponse {
                     dbms_name: self.ctx.session.dbms_name().to_string(),
                     dbms_version_major: self.ctx.session.dbms_version_major(),
@@ -144,136 +156,174 @@ impl<'p, S: ClickHouseSession> ClickhouseTransportProj<'p, S> {
                     dbms_tcp_protocol_version: self.ctx.session.dbms_tcp_protocol_version(),
                     timezone: self.ctx.session.timezone().to_string(),
                     server_display_name: self.ctx.session.server_display_name().to_string(),
-                    dbms_version_patch: self.ctx.session.dbms_version_patch(),
+                    dbms_version_patch: self.ctx.session.dbms_version_patch()
                 };
 
-                response.encode(&mut encoder, hello.client_revision.clone())?;
-
+                hello.client_revision = self
+                    .ctx
+                    .session
+                    .dbms_tcp_protocol_version()
+                    .min(hello.client_revision);
+                *self.client_revision = hello.client_revision;
                 *self.hello = Some(hello);
+
+                response.encode(&mut encoder, *self.client_revision)?;
+                true
             }
             Packet::Query(query) => {
                 self.ctx.state.query = query.query;
                 self.ctx.state.stage = query.stage;
                 self.ctx.state.compression = query.compression;
 
-                let mut result_writer = ResultWriter::new(&mut encoder, self.ctx.state.compression > 0);
+                // TODO, if it's not insert query, we should discard the remaining rd
+                self.rd.clear();
 
-                if let Err(e) = self.ctx.session.execute_query(
-                    &self.ctx.state.query,
-                    self.ctx.state.stage,
-                    &mut result_writer,
-                ) {
-                    ExceptionResponse::encode(&mut encoder, &e, self.ctx.session.with_stack_trace())?
+                match self.ctx.session.execute_query(&mut self.ctx.state) {
+                    Err(err) => {
+                        ExceptionResponse::encode(
+                            &mut encoder,
+                            &err,
+                            self.ctx.session.with_stack_trace()
+                        )?;
+                        encoder.uvarint(SERVER_END_OF_STREAM);
+                    }
+                    Ok(response) => {
+                        let compress = self.ctx.state.compression > 0;
+                        let client_revision = *self.client_revision;
+
+                        // async process blocks and progress
+                        if let Some(mut is) = response.input_stream {
+                            let sender = sender.clone();
+                            let ctx = self.ctx.clone();
+                            let send_progress_time = self.send_progress_time.clone();
+                            thread::spawn(move || {
+                                block_on(async move {
+                                    while let Some(block) = is.next().await {
+                                        let mut encoder = Encoder::new();
+
+                                        if send_progress_time.lock().unwrap().elapsed()
+                                            >= INTERACTIVE_DALAY
+                                        {
+                                            ctx.session
+                                                .get_progress()
+                                                .write(&mut encoder, client_revision);
+                                            *send_progress_time.lock().unwrap() = Instant::now();
+                                        }
+                                        block.unwrap().send_server_data(&mut encoder, compress);
+                                        sender.send(Ok(encoder.get_buffer())).ok();
+                                    }
+                                    let mut encoder = Encoder::new();
+                                    ctx.session
+                                        .get_progress()
+                                        .write(&mut encoder, client_revision);
+                                    encoder.uvarint(SERVER_END_OF_STREAM);
+                                    sender.send(Ok(encoder.get_buffer())).ok();
+                                })
+                            });
+                        }
+                    }
                 }
 
-                encoder.uvarint(SERVER_END_OF_STREAM);
+                true
             }
             Packet::Data(_) => {
                 //TODO inserts
+                true
             }
-        }
+        };
+
         let bytes = encoder.get_buffer();
-        debug!("write packets: {}", bytes.len());
-        *self.wr = Cursor::new(bytes);
-        Ok(())
+        thread::spawn(move || {
+            sender.send(Ok(bytes)).ok();
+        });
+
+        Ok(ret)
     }
 
-    fn response_error(&mut self, err: Error) -> Result<()>{
+    fn response_error_packet(&mut self, err: Error) -> Result<()> {
+        let (sender, receiver) = channel();
+        *self.wr_stream = Some(receiver);
+
         let mut encoder = Encoder::new();
         match err {
             Error::Driver(DriverError::UnknownPacket { packet }) => {
                 if packet == 'G' as u64 || packet == 'P' as u64 {
-                    encoder.string("HTTP/1.0 400 Bad Request\r\n\r\n");
+                    encoder
+                        .string("HTTP/1.0 400 Bad Request, maybe you are using http port\r\n\r\n");
                     let bytes = encoder.get_buffer();
-                    *self.wr = Cursor::new(bytes);
-                    return Ok(());
+                    thread::spawn(move || {
+                        sender.send(Ok(bytes)).ok();
+                    });
+                    return Err("HTTP/1.0 400 Bad Request got".into());
                 }
                 debug!("Error in packets {:?}", err);
-            },
-            _ => {},
+            }
+            _ => {}
         }
 
         Ok(())
     }
+
+    fn send_error(&mut self, e: Error) -> Result<()> {
+        let mut encoder = Encoder::new();
+        ExceptionResponse::encode(&mut encoder, &e, self.ctx.session.with_stack_trace())?;
+        encoder.uvarint(SERVER_END_OF_STREAM);
+        Ok(())
+    }
 }
 
-impl<S: ClickHouseSession> Stream for ClickhouseTransport<S> {
+impl Stream for ClickhouseTransport {
     type Item = Result<()>;
 
     /// Read a message from the `Transport`
-    fn poll_next(mut self: Pin<&mut Self>, cx: &mut task::Context) -> Poll<Option<Self::Item>> {
+    fn poll_next(self: Pin<&mut Self>, cx: &mut task::Context) -> Poll<Option<Self::Item>> {
         let mut this = self.project();
-
         loop {
-            match read_to_end(this.inner.as_mut(), cx, &mut this.rd) {
+            match read_buf(this.inner.as_mut(), cx, &mut this.rd) {
                 Poll::Pending => {
-                    let packet = this.try_parse_msg();
-                    match packet {
-                        Err(e) => {
-                            if e.is_would_block() {
-                                return Poll::Pending;
-                            } else {
-                                match this.response_error(e) {
-                                    Err(f) => return Poll::Ready(Some(Err(f.into()))),
-                                    _ => {
-                                        break;
-                                    },
+                    if !this.rd.is_empty() {
+                        let packet = this.try_parse_msg();
+                        match packet {
+                            Err(e) => {
+                                if e.is_would_block() {
+                                    continue;
+                                } else {
+                                    match this.response_error_packet(e) {
+                                        Err(e) => {
+                                            let _ = this.wr_flush(cx);
+                                            return Poll::Ready(Some(Err(e)));
+                                        }
+                                        _ => {}
+                                    }
                                 }
                             }
-                        },
-                        Ok(packet) => {
-                            match this.response(packet) {
-                                Err(f) => return Poll::Ready(Some(Err(f.into()))),
-                                _ => {
-                                },
+                            Ok(packet) => {
+                                match this.response(packet) {
+                                    Err(e) => {
+                                        //send exceptions
+                                        this.ctx.state.stage = 0;
+                                        this.rd.clear();
+                                        let _ = this.send_error(e);
+                                    }
+                                    Ok(false) => continue,
+                                    _ => {}
+                                }
                             }
-                        },
+                        }
+                        break;
                     }
-                    break;
                 }
                 Poll::Ready(Ok(n)) => {
-                    debug!("Read {} bytes", n);
-
                     if n == 0 {
                         break;
-                        // return Poll::Ready(Some(Ok(())));
-                    }
-                }
-                Poll::Ready(Err(e)) => return Poll::Ready(Some(Err(e.into()))),
-            }
-        }
-
-        //drain wb
-        if !this.wr_is_empty() {
-            // Making the borrow checker happy
-            let res = {
-                let buf = {
-                    let pos = this.wr.position() as usize;
-                    let buf = &this.wr.get_ref()[pos..];
-
-                    debug!("writing; remaining size: {}  = {:?}", buf.len(), buf);
-                    buf
-                };
-                this.inner.as_mut().poll_write(cx, buf)
-            };
-
-            match res {
-                Poll::Ready(Ok(mut n)) => {
-                    debug!("transport flush {:?}", n);
-
-                    n += this.wr.position() as usize;
-                    this.wr.set_position(n as u64);
-                    if n == 0 {
-                        return Poll::Ready(Some(Ok(())));
                     }
                 }
                 Poll::Ready(Err(e)) => {
-                    debug!("transport flush error; err={:?}", e);
                     return Poll::Ready(Some(Err(e.into())));
                 }
-                Poll::Pending => return Poll::Pending,
             }
         }
-        Poll::Pending
+
+        this.wr_flush(cx)
     }
 }
