@@ -181,62 +181,60 @@ impl<'p> ClickhouseTransportProj<'p> {
                 let compress = self.ctx.state.compression > 0;
                 let client_revision = *self.client_revision;
                 let with_stack_trace = self.ctx.session.with_stack_trace();
+                let sender = sender.clone();
+                let ctx = self.ctx.clone();
+                let send_progress_time = self.send_progress_time.clone();
 
-                match self.ctx.session.execute_query(&mut self.ctx.state) {
-                    Err(err) => {
-                        ExceptionResponse::write(
-                            &mut encoder,
-                            &err,
-                            with_stack_trace,
-                        );
-                        encoder.uvarint(SERVER_END_OF_STREAM);
-                    }
-                    Ok(response) => {
-                        // async process blocks and progress
-                        if let Some(mut is) = response.input_stream {
-                            let sender = sender.clone();
-                            let ctx = self.ctx.clone();
-                            let send_progress_time = self.send_progress_time.clone();
-                            thread::spawn(move || {
-                                block_on(async move {
-                                    while let Some(block) = is.next().await {
-                                        let mut encoder = Encoder::new();
-                                        match block {
-                                            Ok(block) => {
+                thread::spawn(move || {
+                    block_on(async move {
+                        let mut encoder = Encoder::new();
 
-                                                if send_progress_time.lock().unwrap().elapsed()
-                                                    >= INTERACTIVE_DALAY
-                                                {
-                                                    ctx.session
-                                                        .get_progress()
-                                                        .write(&mut encoder, client_revision);
-                                                    *send_progress_time.lock().unwrap() = Instant::now();
-                                                }
-                                            }
-                                            Err(err) => {
-                                                ExceptionResponse::write(
-                                                    &mut encoder,
-                                                    &Error::from(err),
-                                                    with_stack_trace
-                                                );
-                                                encoder.uvarint(SERVER_END_OF_STREAM);
-                                            }
-                                        }
-                                        sender.send(Ok(encoder.get_buffer())).ok();
-
-                                    }
+                        match ctx.session.execute_query(&ctx.state).await {
+                            Err(err) => {
+                                ExceptionResponse::write(
+                                    &mut encoder,
+                                    &err,
+                                    with_stack_trace,
+                                );
+                                encoder.uvarint(SERVER_END_OF_STREAM);
+                            }
+                            Ok(mut response) => {
+                                // async process blocks and progress
+                                while let Some(block) = response.input_stream.next().await {
                                     let mut encoder = Encoder::new();
-                                    ctx.session
-                                        .get_progress()
-                                        .write(&mut encoder, client_revision);
-                                    encoder.uvarint(SERVER_END_OF_STREAM);
+                                    match block {
+                                        Ok(block) => {
+                                            if send_progress_time.lock().unwrap().elapsed()
+                                                >= INTERACTIVE_DALAY
+                                            {
+                                                ctx.session
+                                                    .get_progress()
+                                                    .write(&mut encoder, client_revision);
+                                                *send_progress_time.lock().unwrap() = Instant::now();
+                                            }
+                                            block.send_server_data(&mut encoder, compress);
+                                        }
+                                        Err(err) => {
+                                            ExceptionResponse::write(
+                                                &mut encoder,
+                                                &Error::from(err),
+                                                with_stack_trace
+                                            );
+                                            encoder.uvarint(SERVER_END_OF_STREAM);
+                                        }
+                                    }
                                     sender.send(Ok(encoder.get_buffer())).ok();
-                                })
-                            });
+                                }
+                                let mut encoder = Encoder::new();
+                                ctx.session
+                                    .get_progress()
+                                    .write(&mut encoder, client_revision);
+                                encoder.uvarint(SERVER_END_OF_STREAM);
+                                sender.send(Ok(encoder.get_buffer())).ok();
+                            }
                         }
-                    }
-                }
-
+                    });
+                });
                 true
             }
             Packet::Data(_) => {

@@ -23,8 +23,9 @@ pub mod types;
 #[macro_use]
 extern crate bitflags;
 
+#[async_trait::async_trait]
 pub trait ClickHouseSession: Send + Sync {
-    fn execute_query(&self, _: &mut QueryState) -> Result<QueryResponse>;
+    async fn execute_query(&self, _: &QueryState) -> Result<QueryResponse>;
 
     fn with_stack_trace(&self) -> bool {
         false
@@ -78,9 +79,8 @@ pub struct QueryState {
     pub sent_all_data: bool
 }
 
-#[derive(Default)]
 pub struct QueryResponse {
-    pub input_stream: Option<SendableDataBlockStream>,
+    pub input_stream: SendableDataBlockStream,
 }
 
 impl QueryState {

@@ -44,8 +44,9 @@ async fn main() -> std::result::Result<(), Box<dyn Error>> {
 
 struct Session {}
 
+#[async_trait::async_trait]
 impl clickhouse_srv::ClickHouseSession for Session {
-    fn execute_query(&self, state: &mut QueryState) -> Result<QueryResponse> {
+    async fn execute_query(&self, state: &QueryState) -> Result<QueryResponse> {
         let query = state.query.clone();
         info!("Receive query {}", query);
         if query.starts_with("insert") {
@@ -53,12 +54,12 @@ impl clickhouse_srv::ClickHouseSession for Session {
         }
 
         Ok(QueryResponse {
-            input_stream: Some(Box::pin(SimpleBlockStream {
+            input_stream:Box::pin(SimpleBlockStream {
                 idx: 0,
                 start: 10,
                 end: 24,
                 blocks: 10,
-            })),
+            }),
         })
     }
 
