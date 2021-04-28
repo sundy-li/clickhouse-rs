@@ -1,10 +1,13 @@
-use std::{convert, sync::Arc};
+use std::convert;
+use std::sync::Arc;
 
-use crate::{
-    binary::Encoder,
-    errors::{Error, FromSqlError, Result},
-    types::{SqlType, Value, ValueRef},
-};
+use crate::binary::Encoder;
+use crate::errors::Error;
+use crate::errors::FromSqlError;
+use crate::errors::Result;
+use crate::types::SqlType;
+use crate::types::Value;
+use crate::types::ValueRef;
 
 pub(crate) type ArcColumnData = Arc<dyn ColumnData + Send + Sync>;
 

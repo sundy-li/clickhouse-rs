@@ -1,35 +1,40 @@
-use std::{
-    fmt, marker,
-    net::{Ipv4Addr, Ipv6Addr},
-    ops,
-    sync::Arc,
-};
+use std::fmt;
+use std::marker;
+use std::net::Ipv4Addr;
+use std::net::Ipv6Addr;
+use std::ops;
+use std::sync::Arc;
 
 use chrono_tz::Tz;
 
-use crate::types::column::enums::{
-    Enum16Adapter, Enum8Adapter, NullableEnum16Adapter, NullableEnum8Adapter,
-};
-use crate::{
-    binary::{Encoder, ReadEx},
-    errors::{Error, FromSqlError, Result},
-    types::{
-        column::{
-            column_data::ArcColumnData,
-            decimal::{DecimalAdapter, NullableDecimalAdapter},
-            fixed_string::{FixedStringAdapter, NullableFixedStringAdapter},
-            ip::{IpColumnData, Ipv4, Ipv6},
-            iter::Iterable,
-            string::StringAdapter,
-        },
-        decimal::NoBits,
-        SqlType, Value, ValueRef,
-    },
-};
-
 use self::chunk::ChunkColumnData;
-pub(crate) use self::{column_data::ColumnData, string_pool::StringPool};
-pub use self::{concat::ConcatColumnData, numeric::VectorColumnData};
+pub(crate) use self::column_data::ColumnData;
+pub use self::concat::ConcatColumnData;
+pub use self::numeric::VectorColumnData;
+pub(crate) use self::string_pool::StringPool;
+use crate::binary::Encoder;
+use crate::binary::ReadEx;
+use crate::errors::Error;
+use crate::errors::FromSqlError;
+use crate::errors::Result;
+use crate::types::column::column_data::ArcColumnData;
+use crate::types::column::decimal::DecimalAdapter;
+use crate::types::column::decimal::NullableDecimalAdapter;
+use crate::types::column::enums::Enum16Adapter;
+use crate::types::column::enums::Enum8Adapter;
+use crate::types::column::enums::NullableEnum16Adapter;
+use crate::types::column::enums::NullableEnum8Adapter;
+use crate::types::column::fixed_string::FixedStringAdapter;
+use crate::types::column::fixed_string::NullableFixedStringAdapter;
+use crate::types::column::ip::IpColumnData;
+use crate::types::column::ip::Ipv4;
+use crate::types::column::ip::Ipv6;
+use crate::types::column::iter::Iterable;
+use crate::types::column::string::StringAdapter;
+use crate::types::decimal::NoBits;
+use crate::types::SqlType;
+use crate::types::Value;
+use crate::types::ValueRef;
 
 mod array;
 pub(crate) mod chrono_datetime;
@@ -54,7 +59,7 @@ mod string_pool;
 pub struct Column<K: ColumnType> {
     pub(crate) name: String,
     pub(crate) data: ArcColumnData,
-    pub(crate) _marker: marker::PhantomData<K>,
+    pub(crate) _marker: marker::PhantomData<K>
 }
 
 pub trait ColumnFrom {
@@ -65,12 +70,12 @@ pub trait ColumnType: Send + Copy + Sync + 'static {}
 
 #[derive(Copy, Clone)]
 pub struct Simple {
-    _private: (),
+    _private: ()
 }
 
 #[derive(Copy, Clone)]
 pub struct Complex {
-    _private: (),
+    _private: ()
 }
 
 impl ColumnType for Simple {}
@@ -120,16 +125,14 @@ impl<K: ColumnType> Clone for Column<K> {
         Self {
             name: self.name.clone(),
             data: self.data.clone(),
-            _marker: marker::PhantomData,
+            _marker: marker::PhantomData
         }
     }
 }
 
 impl Column<Simple> {
     pub(crate) fn concat<'a, I>(items: I) -> Column<Complex>
-    where
-        I: Iterator<Item = &'a Self>,
-    {
+    where I: Iterator<Item = &'a Self> {
         let items_vec: Vec<&Self> = items.collect();
         let chunks: Vec<_> = items_vec.iter().map(|column| column.data.clone()).collect();
         match items_vec.first() {
@@ -140,7 +143,7 @@ impl Column<Simple> {
                 Column {
                     name,
                     data: Arc::new(data),
-                    _marker: marker::PhantomData,
+                    _marker: marker::PhantomData
                 }
             }
         }
@@ -197,7 +200,7 @@ impl<K: ColumnType> Column<K> {
         let column = Self {
             name,
             data,
-            _marker: marker::PhantomData,
+            _marker: marker::PhantomData
         };
         Ok(column)
     }
@@ -234,7 +237,7 @@ impl<K: ColumnType> Column<K> {
         Column {
             name: self.name.clone(),
             data: Arc::new(data),
-            _marker: marker::PhantomData,
+            _marker: marker::PhantomData
         }
     }
 
@@ -250,27 +253,27 @@ impl<K: ColumnType> Column<K> {
                 let name = self.name().to_owned();
                 let adapter = FixedStringAdapter {
                     column: self,
-                    str_len,
+                    str_len
                 };
                 Ok(Column {
                     name,
                     data: Arc::new(adapter),
-                    _marker: marker::PhantomData,
+                    _marker: marker::PhantomData
                 })
             }
             (
                 SqlType::Nullable(SqlType::FixedString(str_len)),
-                SqlType::Nullable(SqlType::String),
+                SqlType::Nullable(SqlType::String)
             ) => {
                 let name = self.name().to_owned();
                 let adapter = NullableFixedStringAdapter {
                     column: self,
-                    str_len: *str_len,
+                    str_len: *str_len
                 };
                 Ok(Column {
                     name,
                     data: Arc::new(adapter),
-                    _marker: marker::PhantomData,
+                    _marker: marker::PhantomData
                 })
             }
             (SqlType::String, SqlType::Array(SqlType::UInt8)) => {
@@ -279,7 +282,7 @@ impl<K: ColumnType> Column<K> {
                 Ok(Column {
                     name,
                     data: Arc::new(adapter),
-                    _marker: marker::PhantomData,
+                    _marker: marker::PhantomData
                 })
             }
             (SqlType::FixedString(n), SqlType::Array(SqlType::UInt8)) => {
@@ -293,73 +296,73 @@ impl<K: ColumnType> Column<K> {
                     column: self,
                     precision: dst_p,
                     scale: dst_s,
-                    nobits,
+                    nobits
                 };
                 Ok(Column {
                     name,
                     data: Arc::new(adapter),
-                    _marker: marker::PhantomData,
+                    _marker: marker::PhantomData
                 })
             }
             (SqlType::Enum8(enum_values), SqlType::Enum8(_)) => {
                 let name = self.name().to_owned();
                 let adapter = Enum8Adapter {
                     column: self,
-                    enum_values,
+                    enum_values
                 };
                 Ok(Column {
                     name,
                     data: Arc::new(adapter),
-                    _marker: marker::PhantomData,
+                    _marker: marker::PhantomData
                 })
             }
             (SqlType::Enum16(enum_values), SqlType::Enum16(_)) => {
                 let name = self.name().to_owned();
                 let adapter = Enum16Adapter {
                     column: self,
-                    enum_values,
+                    enum_values
                 };
                 Ok(Column {
                     name,
                     data: Arc::new(adapter),
-                    _marker: marker::PhantomData,
+                    _marker: marker::PhantomData
                 })
             }
             (
                 SqlType::Nullable(SqlType::Enum8(enum_values)),
-                SqlType::Nullable(SqlType::Enum8(_)),
+                SqlType::Nullable(SqlType::Enum8(_))
             ) => {
                 let name = self.name().to_owned();
                 let enum_values = enum_values.clone();
                 let adapter = NullableEnum8Adapter {
                     column: self,
-                    enum_values,
+                    enum_values
                 };
                 Ok(Column {
                     name,
                     data: Arc::new(adapter),
-                    _marker: marker::PhantomData,
+                    _marker: marker::PhantomData
                 })
             }
             (
                 SqlType::Nullable(SqlType::Enum16(enum_values)),
-                SqlType::Nullable(SqlType::Enum16(_)),
+                SqlType::Nullable(SqlType::Enum16(_))
             ) => {
                 let name = self.name().to_owned();
                 let enum_values = enum_values.clone();
                 let adapter = NullableEnum16Adapter {
                     column: self,
-                    enum_values,
+                    enum_values
                 };
                 Ok(Column {
                     name,
                     data: Arc::new(adapter),
-                    _marker: marker::PhantomData,
+                    _marker: marker::PhantomData
                 })
             }
             (
                 SqlType::Nullable(SqlType::Decimal(dst_p, dst_s)),
-                SqlType::Nullable(SqlType::Decimal(_, _)),
+                SqlType::Nullable(SqlType::Decimal(_, _))
             ) => {
                 let name = self.name().to_owned();
                 let nobits = NoBits::from_precision(*dst_p).unwrap();
@@ -367,12 +370,12 @@ impl<K: ColumnType> Column<K> {
                     column: self,
                     precision: *dst_p,
                     scale: *dst_s,
-                    nobits,
+                    nobits
                 };
                 Ok(Column {
                     name,
                     data: Arc::new(adapter),
-                    _marker: marker::PhantomData,
+                    _marker: marker::PhantomData
                 })
             }
             (SqlType::Ipv4, SqlType::String) => {
@@ -391,13 +394,13 @@ impl<K: ColumnType> Column<K> {
 
                 let data = Arc::new(IpColumnData::<Ipv4> {
                     inner,
-                    phantom: marker::PhantomData,
+                    phantom: marker::PhantomData
                 });
 
                 Ok(Column {
                     name,
                     data,
-                    _marker: marker::PhantomData,
+                    _marker: marker::PhantomData
                 })
             }
             (SqlType::Ipv6, SqlType::String) => {
@@ -413,13 +416,13 @@ impl<K: ColumnType> Column<K> {
 
                 let data = Arc::new(IpColumnData::<Ipv6> {
                     inner,
-                    phantom: marker::PhantomData,
+                    phantom: marker::PhantomData
                 });
 
                 Ok(Column {
                     name,
                     data,
-                    _marker: marker::PhantomData,
+                    _marker: marker::PhantomData
                 })
             }
             _ => {
@@ -428,12 +431,12 @@ impl<K: ColumnType> Column<K> {
                     Ok(Column {
                         name,
                         data,
-                        _marker: marker::PhantomData,
+                        _marker: marker::PhantomData
                     })
                 } else {
                     Err(Error::FromSql(FromSqlError::InvalidType {
                         src: src_type.to_string(),
-                        dst: dst_type.to_string(),
+                        dst: dst_type.to_string()
                     }))
                 }
             }
@@ -461,12 +464,12 @@ impl<K: ColumnType> Column<K> {
 
 pub(crate) fn new_column<K: ColumnType>(
     name: &str,
-    data: Arc<(dyn ColumnData + Sync + Send + 'static)>,
+    data: Arc<(dyn ColumnData + Sync + Send + 'static)>
 ) -> Column<K> {
     Column {
         name: name.to_string(),
         data,
-        _marker: marker::PhantomData,
+        _marker: marker::PhantomData
     }
 }
 
@@ -474,10 +477,10 @@ pub(crate) fn new_column<K: ColumnType>(
 pub enum Either<L, R>
 where
     L: fmt::Debug + PartialEq + Clone,
-    R: fmt::Debug + PartialEq + Clone,
+    R: fmt::Debug + PartialEq + Clone
 {
     Left(L),
-    Right(R),
+    Right(R)
 }
 
 pub trait ColumnWrapper {
@@ -488,7 +491,7 @@ pub trait ColumnWrapper {
 }
 
 pub(crate) struct ArcColumnWrapper {
-    _private: (),
+    _private: ()
 }
 
 impl ColumnWrapper for ArcColumnWrapper {
@@ -504,7 +507,7 @@ impl ColumnWrapper for ArcColumnWrapper {
 }
 
 pub(crate) struct BoxColumnWrapper {
-    _private: (),
+    _private: ()
 }
 
 impl ColumnWrapper for BoxColumnWrapper {

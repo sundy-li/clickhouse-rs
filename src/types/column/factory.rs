@@ -1,36 +1,41 @@
 use chrono_tz::Tz;
+use combine::any;
+use combine::error::StringStreamError;
+use combine::many;
+use combine::many1;
+use combine::none_of;
+use combine::optional;
+use combine::parser::char::digit;
+use combine::parser::char::spaces;
+use combine::parser::char::string;
+use combine::sep_by1;
+use combine::token;
+use combine::Parser;
 
-use combine::{
-    any,
-    error::StringStreamError,
-    many, many1, none_of, optional,
-    parser::char::{digit, spaces, string},
-    sep_by1, token, Parser,
-};
-
-use crate::{
-    binary::ReadEx,
-    errors::Result,
-    types::{
-        column::{
-            array::ArrayColumnData,
-            column_data::ColumnData,
-            date::DateColumnData,
-            datetime64::DateTime64ColumnData,
-            decimal::DecimalColumnData,
-            enums::{Enum16ColumnData, Enum8ColumnData},
-            fixed_string::FixedStringColumnData,
-            ip::{IpColumnData, Ipv4, Ipv6, Uuid},
-            list::List,
-            nullable::NullableColumnData,
-            numeric::VectorColumnData,
-            string::StringColumnData,
-            ArcColumnWrapper, BoxColumnWrapper, ColumnWrapper,
-        },
-        decimal::NoBits,
-        DateTimeType, SqlType,
-    },
-};
+use crate::binary::ReadEx;
+use crate::errors::Result;
+use crate::types::column::array::ArrayColumnData;
+use crate::types::column::column_data::ColumnData;
+use crate::types::column::date::DateColumnData;
+use crate::types::column::datetime64::DateTime64ColumnData;
+use crate::types::column::decimal::DecimalColumnData;
+use crate::types::column::enums::Enum16ColumnData;
+use crate::types::column::enums::Enum8ColumnData;
+use crate::types::column::fixed_string::FixedStringColumnData;
+use crate::types::column::ip::IpColumnData;
+use crate::types::column::ip::Ipv4;
+use crate::types::column::ip::Ipv6;
+use crate::types::column::ip::Uuid;
+use crate::types::column::list::List;
+use crate::types::column::nullable::NullableColumnData;
+use crate::types::column::numeric::VectorColumnData;
+use crate::types::column::string::StringColumnData;
+use crate::types::column::ArcColumnWrapper;
+use crate::types::column::BoxColumnWrapper;
+use crate::types::column::ColumnWrapper;
+use crate::types::decimal::NoBits;
+use crate::types::DateTimeType;
+use crate::types::SqlType;
 
 macro_rules! match_str {
     ($arg:ident, {
@@ -54,7 +59,7 @@ impl dyn ColumnData {
         reader: &mut T,
         type_name: &str,
         size: usize,
-        tz: Tz,
+        tz: Tz
     ) -> Result<W::Wrapper> {
         Ok(match_str!(type_name, {
             "UInt8" => W::wrap(VectorColumnData::<u8>::load(reader, size)?),
@@ -102,7 +107,7 @@ impl dyn ColumnData {
     pub(crate) fn from_type<W: ColumnWrapper>(
         sql_type: SqlType,
         timezone: Tz,
-        capacity: usize,
+        capacity: usize
     ) -> Result<W::Wrapper> {
         Ok(match sql_type {
             SqlType::UInt8 => W::wrap(VectorColumnData::<u8>::with_capacity(capacity)),
@@ -126,7 +131,7 @@ impl dyn ColumnData {
 
             SqlType::Date => W::wrap(DateColumnData::<u16>::with_capacity(capacity, timezone)),
             SqlType::DateTime(DateTimeType::DateTime64(precision, timezone)) => W::wrap(
-                DateTime64ColumnData::with_capacity(capacity, precision, timezone),
+                DateTime64ColumnData::with_capacity(capacity, precision, timezone)
             ),
             SqlType::DateTime(_) => {
                 W::wrap(DateColumnData::<u32>::with_capacity(capacity, timezone))
@@ -135,33 +140,33 @@ impl dyn ColumnData {
                 inner: <dyn ColumnData>::from_type::<ArcColumnWrapper>(
                     inner_type.clone(),
                     timezone,
-                    capacity,
+                    capacity
                 )?,
-                nulls: Vec::new(),
+                nulls: Vec::new()
             }),
             SqlType::Array(inner_type) => W::wrap(ArrayColumnData {
                 inner: <dyn ColumnData>::from_type::<ArcColumnWrapper>(
                     inner_type.clone(),
                     timezone,
-                    capacity,
+                    capacity
                 )?,
-                offsets: List::with_capacity(capacity),
+                offsets: List::with_capacity(capacity)
             }),
             SqlType::Decimal(precision, scale) => {
                 let nobits = NoBits::from_precision(precision).unwrap();
 
                 let inner_type = match nobits {
                     NoBits::N32 => SqlType::Int32,
-                    NoBits::N64 => SqlType::Int64,
+                    NoBits::N64 => SqlType::Int64
                 };
 
                 W::wrap(DecimalColumnData {
                     inner: <dyn ColumnData>::from_type::<BoxColumnWrapper>(
-                        inner_type, timezone, capacity,
+                        inner_type, timezone, capacity
                     )?,
                     precision,
                     scale,
-                    nobits,
+                    nobits
                 })
             }
             SqlType::Enum8(enum_values) => W::wrap(Enum8ColumnData {
@@ -169,17 +174,17 @@ impl dyn ColumnData {
                 inner: <dyn ColumnData>::from_type::<BoxColumnWrapper>(
                     SqlType::Int8,
                     timezone,
-                    capacity,
-                )?,
+                    capacity
+                )?
             }),
             SqlType::Enum16(enum_values) => W::wrap(Enum16ColumnData {
                 enum_values,
                 inner: <dyn ColumnData>::from_type::<BoxColumnWrapper>(
                     SqlType::Int16,
                     timezone,
-                    capacity,
-                )?,
-            }),
+                    capacity
+                )?
+            })
         })
     }
 }
@@ -192,7 +197,7 @@ fn parse_fixed_string(source: &str) -> Option<usize> {
     let inner_size = &source[12..source.len() - 1];
     match inner_size.parse::<usize>() {
         Err(_) => None,
-        Ok(value) => Some(value),
+        Ok(value) => Some(value)
     }
 }
 
@@ -244,7 +249,7 @@ fn parse_decimal(source: &str) -> Option<(u8, u8, NoBits)> {
                 b"Decimal64" => {
                     nobits = Some(NoBits::N64);
                 }
-                _ => return None,
+                _ => return None
             }
             params_indexes.0 = Some(idx);
         }
@@ -255,7 +260,7 @@ fn parse_decimal(source: &str) -> Option<(u8, u8, NoBits)> {
 
     let params_indexes = match params_indexes {
         (Some(start), Some(end)) => (start, end),
-        _ => return None,
+        _ => return None
     };
 
     match nobits {
@@ -273,7 +278,7 @@ fn parse_decimal(source: &str) -> Option<(u8, u8, NoBits)> {
                 match idx {
                     0 => precision = cell.parse().ok(),
                     1 => scale = cell.parse().ok(),
-                    _ => return None,
+                    _ => return None
                 }
             }
         }
@@ -290,17 +295,17 @@ fn parse_decimal(source: &str) -> Option<(u8, u8, NoBits)> {
         (None, Some(scale), Some(bits)) => {
             let precision = match bits {
                 NoBits::N32 => 9,
-                NoBits::N64 => 18,
+                NoBits::N64 => 18
             };
             Some((precision, scale, bits))
         }
-        _ => None,
+        _ => None
     }
 }
 
 enum EnumSize {
     Enum8,
-    Enum16,
+    Enum16
 }
 
 fn parse_enum8(input: &str) -> Option<Vec<(String, i8)>> {
@@ -312,7 +317,7 @@ fn parse_enum8(input: &str) -> Option<Vec<(String, i8)>> {
                 .collect();
             Some(res)
         }
-        None => None,
+        None => None
     }
 }
 fn parse_enum16(input: &str) -> Option<Vec<(String, i16)>> {
@@ -322,7 +327,7 @@ fn parse_enum16(input: &str) -> Option<Vec<(String, i16)>> {
 fn parse_enum(size: EnumSize, input: &str) -> Option<Vec<(String, i16)>> {
     let size = match size {
         EnumSize::Enum8 => "Enum8",
-        EnumSize::Enum16 => "Enum16",
+        EnumSize::Enum16 => "Enum16"
     };
 
     let integer = optional(token('-'))
@@ -397,14 +402,14 @@ fn parse_date_time64(source: &str) -> Option<(u32, Option<String>)> {
 
     match parser.parse(source) {
         Ok((pair, remain)) if remain.is_empty() => Some(pair),
-        _ => None,
+        _ => None
     }
 }
 
 fn get_timezone(timezone: &Option<String>, tz: Tz) -> Result<Tz> {
     match timezone {
         None => Ok(tz),
-        Some(t) => Ok(t.parse()?),
+        Some(t) => Ok(t.parse()?)
     }
 }
 

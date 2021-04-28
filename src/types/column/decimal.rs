@@ -1,40 +1,47 @@
-use chrono_tz::Tz;
 use std::sync::Arc;
 
-use crate::{
-    binary::{Encoder, ReadEx},
-    errors::Result,
-    types::{
-        column::{
-            column_data::BoxColumnData, column_data::ColumnData, list::List,
-            nullable::NullableColumnData, BoxColumnWrapper, ColumnFrom, ColumnWrapper, Either,
-            VectorColumnData,
-        },
-        decimal::{Decimal, NoBits},
-        from_sql::FromSql,
-        Column, ColumnType, SqlType, Value, ValueRef,
-    },
-};
+use chrono_tz::Tz;
+
+use crate::binary::Encoder;
+use crate::binary::ReadEx;
+use crate::errors::Result;
+use crate::types::column::column_data::BoxColumnData;
+use crate::types::column::column_data::ColumnData;
+use crate::types::column::list::List;
+use crate::types::column::nullable::NullableColumnData;
+use crate::types::column::BoxColumnWrapper;
+use crate::types::column::ColumnFrom;
+use crate::types::column::ColumnWrapper;
+use crate::types::column::Either;
+use crate::types::column::VectorColumnData;
+use crate::types::decimal::Decimal;
+use crate::types::decimal::NoBits;
+use crate::types::from_sql::FromSql;
+use crate::types::Column;
+use crate::types::ColumnType;
+use crate::types::SqlType;
+use crate::types::Value;
+use crate::types::ValueRef;
 
 pub(crate) struct DecimalColumnData {
     pub(crate) inner: Box<dyn ColumnData + Send + Sync>,
     pub(crate) precision: u8,
     pub(crate) scale: u8,
-    pub(crate) nobits: NoBits,
+    pub(crate) nobits: NoBits
 }
 
 pub(crate) struct DecimalAdapter<K: ColumnType> {
     pub(crate) column: Column<K>,
     pub(crate) precision: u8,
     pub(crate) scale: u8,
-    pub(crate) nobits: NoBits,
+    pub(crate) nobits: NoBits
 }
 
 pub(crate) struct NullableDecimalAdapter<K: ColumnType> {
     pub(crate) column: Column<K>,
     pub(crate) precision: u8,
     pub(crate) scale: u8,
-    pub(crate) nobits: NoBits,
+    pub(crate) nobits: NoBits
 }
 
 impl DecimalColumnData {
@@ -44,11 +51,11 @@ impl DecimalColumnData {
         scale: u8,
         nobits: NoBits,
         size: usize,
-        tz: Tz,
+        tz: Tz
     ) -> Result<Self> {
         let type_name = match nobits {
             NoBits::N32 => "Int32",
-            NoBits::N64 => "Int64",
+            NoBits::N64 => "Int64"
         };
         let inner =
             <dyn ColumnData>::load_data::<BoxColumnWrapper, _>(reader, type_name, size, tz)?;
@@ -57,7 +64,7 @@ impl DecimalColumnData {
             inner,
             precision,
             scale,
-            nobits,
+            nobits
         })
     }
 }
@@ -86,7 +93,7 @@ impl ColumnFrom for Vec<Decimal> {
             inner,
             precision,
             scale,
-            nobits: NoBits::N64,
+            nobits: NoBits::N64
         };
 
         W::wrap(column)
@@ -124,12 +131,12 @@ impl ColumnFrom for Vec<Option<Decimal>> {
             inner,
             precision,
             scale,
-            nobits: NoBits::N64,
+            nobits: NoBits::N64
         };
 
         W::wrap(NullableColumnData {
             nulls,
-            inner: Arc::new(inner),
+            inner: Arc::new(inner)
         })
     }
 }
@@ -167,14 +174,14 @@ impl ColumnData for DecimalColumnData {
     fn at(&self, index: usize) -> ValueRef {
         let underlying: i64 = match self.nobits {
             NoBits::N32 => i64::from(i32::from(self.inner.at(index))),
-            NoBits::N64 => i64::from(self.inner.at(index)),
+            NoBits::N64 => i64::from(self.inner.at(index))
         };
 
         ValueRef::Decimal(Decimal {
             underlying,
             precision: self.precision,
             scale: self.scale,
-            nobits: self.nobits,
+            nobits: self.nobits
         })
     }
 
@@ -183,7 +190,7 @@ impl ColumnData for DecimalColumnData {
             inner: self.inner.clone_instance(),
             precision: self.precision,
             scale: self.scale,
-            nobits: self.nobits,
+            nobits: self.nobits
         })
     }
 

@@ -1,19 +1,19 @@
-use std::{
-    marker::PhantomData,
-    net::{Ipv4Addr, Ipv6Addr},
-    sync::Arc,
-};
+use std::marker::PhantomData;
+use std::net::Ipv4Addr;
+use std::net::Ipv6Addr;
+use std::sync::Arc;
 
-use crate::{
-    binary::{Encoder, ReadEx},
-    errors::Result,
-    types::{
-        column::{column_data::BoxColumnData, nullable::NullableColumnData, ColumnWrapper},
-        SqlType, Value, ValueRef,
-    },
-};
-
-use super::{column_data::ColumnData, ColumnFrom};
+use super::column_data::ColumnData;
+use super::ColumnFrom;
+use crate::binary::Encoder;
+use crate::binary::ReadEx;
+use crate::errors::Result;
+use crate::types::column::column_data::BoxColumnData;
+use crate::types::column::nullable::NullableColumnData;
+use crate::types::column::ColumnWrapper;
+use crate::types::SqlType;
+use crate::types::Value;
+use crate::types::ValueRef;
 
 pub(crate) trait IpVersion: Copy + Sync + Send + 'static {
     fn sql_type() -> SqlType;
@@ -126,7 +126,7 @@ impl ColumnFrom for Vec<Ipv4Addr> {
 
         W::wrap(IpColumnData::<Ipv4> {
             inner,
-            phantom: PhantomData,
+            phantom: PhantomData
         })
     }
 }
@@ -140,7 +140,7 @@ impl ColumnFrom for Vec<Ipv6Addr> {
 
         W::wrap(IpColumnData::<Ipv6> {
             inner,
-            phantom: PhantomData,
+            phantom: PhantomData
         })
     }
 }
@@ -157,7 +157,7 @@ impl ColumnFrom for Vec<uuid::Uuid> {
 
         W::wrap(IpColumnData::<Uuid> {
             inner,
-            phantom: PhantomData,
+            phantom: PhantomData
         })
     }
 }
@@ -185,7 +185,7 @@ impl ColumnFrom for Vec<Option<Ipv4Addr>> {
 
         let inner = Arc::new(IpColumnData::<Ipv4> {
             inner,
-            phantom: PhantomData,
+            phantom: PhantomData
         });
 
         let data = NullableColumnData { inner, nulls };
@@ -215,7 +215,7 @@ impl ColumnFrom for Vec<Option<Ipv6Addr>> {
 
         let inner = Arc::new(IpColumnData::<Ipv6> {
             inner,
-            phantom: PhantomData,
+            phantom: PhantomData
         });
 
         let data = NullableColumnData { inner, nulls };
@@ -248,7 +248,7 @@ impl ColumnFrom for Vec<Option<uuid::Uuid>> {
 
         let inner = Arc::new(IpColumnData::<Uuid> {
             inner,
-            phantom: PhantomData,
+            phantom: PhantomData
         });
 
         let data = NullableColumnData { inner, nulls };
@@ -259,14 +259,14 @@ impl ColumnFrom for Vec<Option<uuid::Uuid>> {
 
 pub(crate) struct IpColumnData<V: IpVersion> {
     pub(crate) inner: Vec<u8>,
-    pub(crate) phantom: PhantomData<V>,
+    pub(crate) phantom: PhantomData<V>
 }
 
 impl<V: IpVersion> IpColumnData<V> {
     pub fn with_capacity(capacity: usize) -> Self {
         Self {
             inner: vec![0; capacity * V::size()],
-            phantom: PhantomData,
+            phantom: PhantomData
         }
     }
 
@@ -276,7 +276,7 @@ impl<V: IpVersion> IpColumnData<V> {
 
         Ok(Self {
             inner,
-            phantom: PhantomData,
+            phantom: PhantomData
         })
     }
 }
@@ -309,7 +309,7 @@ impl<V: IpVersion> ColumnData for IpColumnData<V> {
     fn clone_instance(&self) -> BoxColumnData {
         Box::new(Self {
             inner: self.inner.clone(),
-            phantom: PhantomData,
+            phantom: PhantomData
         })
     }
 

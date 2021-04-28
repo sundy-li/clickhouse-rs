@@ -2,22 +2,21 @@ use std::sync::Arc;
 
 use chrono_tz::Tz;
 
-use crate::{
-    binary::{Encoder, ReadEx},
-    errors::Result,
-    types::{
-        column::{
-            column_data::{ArcColumnData, BoxColumnData},
-            list::List,
-            ArcColumnWrapper, ColumnData,
-        },
-        SqlType, Value, ValueRef,
-    },
-};
+use crate::binary::Encoder;
+use crate::binary::ReadEx;
+use crate::errors::Result;
+use crate::types::column::column_data::ArcColumnData;
+use crate::types::column::column_data::BoxColumnData;
+use crate::types::column::list::List;
+use crate::types::column::ArcColumnWrapper;
+use crate::types::column::ColumnData;
+use crate::types::SqlType;
+use crate::types::Value;
+use crate::types::ValueRef;
 
 pub(crate) struct ArrayColumnData {
     pub(crate) inner: ArcColumnData,
-    pub(crate) offsets: List<u64>,
+    pub(crate) offsets: List<u64>
 }
 
 impl ArrayColumnData {
@@ -25,7 +24,7 @@ impl ArrayColumnData {
         reader: &mut R,
         type_name: &str,
         rows: usize,
-        tz: Tz,
+        tz: Tz
     ) -> Result<Self> {
         let mut offsets = List::with_capacity(rows);
         offsets.resize(rows, 0_u64);
@@ -33,7 +32,7 @@ impl ArrayColumnData {
 
         let size = match rows {
             0 => 0,
-            _ => offsets.at(rows - 1) as usize,
+            _ => offsets.at(rows - 1) as usize
         };
         let inner =
             <dyn ColumnData>::load_data::<ArcColumnWrapper, _>(reader, type_name, size, tz)?;
@@ -102,7 +101,7 @@ impl ColumnData for ArrayColumnData {
     fn clone_instance(&self) -> BoxColumnData {
         Box::new(Self {
             inner: self.inner.clone(),
-            offsets: self.offsets.clone(),
+            offsets: self.offsets.clone()
         })
     }
 
@@ -121,7 +120,7 @@ impl ColumnData for ArrayColumnData {
             if let Some(inner) = self.inner.cast_to(&self.inner, inner_target) {
                 return Some(Arc::new(ArrayColumnData {
                     inner,
-                    offsets: self.offsets.clone(),
+                    offsets: self.offsets.clone()
                 }));
             }
         }
@@ -134,14 +133,15 @@ mod test {
     use std::io::Cursor;
 
     use super::*;
-    use crate::{types::Simple, Block};
+    use crate::types::Simple;
+    use crate::Block;
 
     #[test]
     fn test_write_and_read() {
-        let block = Block::<Simple>::new().column(
-            "vals",
-            vec![vec![7_u32, 8], vec![9, 1, 2], vec![3, 4, 5, 6]],
-        );
+        let block =
+            Block::<Simple>::new().column("vals", vec![vec![7_u32, 8], vec![9, 1, 2], vec![
+                3, 4, 5, 6,
+            ]]);
 
         let mut encoder = Encoder::new();
         block.write(&mut encoder, false);

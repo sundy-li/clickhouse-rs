@@ -1,15 +1,17 @@
-use std::{io, mem::MaybeUninit};
+use std::io;
+use std::mem::MaybeUninit;
 
-use crate::{
-    errors::{DriverError, Error, Result},
-    types::{column::StringPool, StatBuffer, Unmarshal},
-};
+use crate::errors::DriverError;
+use crate::errors::Error;
+use crate::errors::Result;
+use crate::types::column::StringPool;
+use crate::types::StatBuffer;
+use crate::types::Unmarshal;
 
 pub(crate) trait ReadEx {
     fn read_bytes(&mut self, rv: &mut [u8]) -> Result<()>;
     fn read_scalar<V>(&mut self) -> Result<V>
-    where
-        V: Copy + Unmarshal<V> + StatBuffer;
+    where V: Copy + Unmarshal<V> + StatBuffer;
     fn read_string(&mut self) -> Result<String>;
     fn skip_string(&mut self) -> Result<()>;
     fn read_uvarint(&mut self) -> Result<u64>;
@@ -19,8 +21,7 @@ pub(crate) trait ReadEx {
 const MAX_STACK_BUFFER_LEN: usize = 1024;
 
 impl<T> ReadEx for T
-where
-    T: io::Read,
+where T: io::Read
 {
     fn read_bytes(&mut self, rv: &mut [u8]) -> Result<()> {
         let mut i = 0;
@@ -35,16 +36,14 @@ where
                     return Err(ret.into());
                 }
                 Ok(nread) => i += nread,
-                Err(e) => return Err(From::from(e)),
+                Err(e) => return Err(From::from(e))
             }
         }
         Ok(())
     }
 
     fn read_scalar<V>(&mut self) -> Result<V>
-    where
-        V: Copy + Unmarshal<V> + StatBuffer,
-    {
+    where V: Copy + Unmarshal<V> + StatBuffer {
         let mut buffer = V::buffer();
         self.read_bytes(buffer.as_mut())?;
         Ok(V::unmarshal(buffer.as_ref()))
@@ -65,7 +64,7 @@ where
                 let mut buffer: [MaybeUninit<u8>; MAX_STACK_BUFFER_LEN] =
                     MaybeUninit::uninit().assume_init();
                 self.read_bytes(
-                    &mut *(&mut buffer[..str_len] as *mut [MaybeUninit<u8>] as *mut [u8]),
+                    &mut *(&mut buffer[..str_len] as *mut [MaybeUninit<u8>] as *mut [u8])
                 )?;
             }
         } else {
@@ -107,8 +106,9 @@ where
 
 #[test]
 fn test_read_uvarint() {
-    use super::ReadEx;
     use std::io::Cursor;
+
+    use super::ReadEx;
 
     let bytes = [194_u8, 10];
     let mut cursor = Cursor::new(bytes);

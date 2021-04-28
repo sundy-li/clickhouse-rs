@@ -1,18 +1,17 @@
-use std::{cmp, ops};
-
-use crate::{
-    binary::Encoder,
-    types::{
-        column::column_data::{ArcColumnData, BoxColumnData},
-        SqlType, Value, ValueRef,
-    },
-};
+use std::cmp;
+use std::ops;
 
 use super::ColumnData;
+use crate::binary::Encoder;
+use crate::types::column::column_data::ArcColumnData;
+use crate::types::column::column_data::BoxColumnData;
+use crate::types::SqlType;
+use crate::types::Value;
+use crate::types::ValueRef;
 
 pub struct ChunkColumnData {
     data: ArcColumnData,
-    range: ops::Range<usize>,
+    range: ops::Range<usize>
 }
 
 impl ChunkColumnData {
@@ -30,7 +29,7 @@ impl ColumnData for ChunkColumnData {
         self.data.save(
             encoder,
             self.range.start + start,
-            cmp::min(self.range.end, self.range.start + end),
+            cmp::min(self.range.end, self.range.start + end)
         )
     }
 

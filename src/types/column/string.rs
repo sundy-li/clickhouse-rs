@@ -1,34 +1,39 @@
-use std::{io::Write, string::ToString, sync::Arc};
+use std::io::Write;
+use std::string::ToString;
+use std::sync::Arc;
 
-use crate::{
-    binary::{Encoder, ReadEx},
-    errors::Result,
-    types::{
-        column::{
-            array::ArrayColumnData, list::List, nullable::NullableColumnData, ArcColumnWrapper,
-            ColumnWrapper, Either, StringPool,
-        },
-        Column, ColumnType, FromSql, SqlType, Value, ValueRef,
-    },
-};
-
-use super::{
-    column_data::{BoxColumnData, ColumnData},
-    ColumnFrom,
-};
+use super::column_data::BoxColumnData;
+use super::column_data::ColumnData;
+use super::ColumnFrom;
+use crate::binary::Encoder;
+use crate::binary::ReadEx;
+use crate::errors::Result;
+use crate::types::column::array::ArrayColumnData;
+use crate::types::column::list::List;
+use crate::types::column::nullable::NullableColumnData;
+use crate::types::column::ArcColumnWrapper;
+use crate::types::column::ColumnWrapper;
+use crate::types::column::Either;
+use crate::types::column::StringPool;
+use crate::types::Column;
+use crate::types::ColumnType;
+use crate::types::FromSql;
+use crate::types::SqlType;
+use crate::types::Value;
+use crate::types::ValueRef;
 
 pub(crate) struct StringColumnData {
-    pool: StringPool,
+    pool: StringPool
 }
 
 pub(crate) struct StringAdapter<K: ColumnType> {
-    pub(crate) column: Column<K>,
+    pub(crate) column: Column<K>
 }
 
 impl StringColumnData {
     pub(crate) fn with_capacity(capacity: usize) -> Self {
         Self {
-            pool: StringPool::with_capacity(capacity),
+            pool: StringPool::with_capacity(capacity)
         }
     }
 
@@ -97,7 +102,7 @@ impl ColumnFrom for Vec<Vec<&str>> {
 }
 
 fn make_array_of_array<W: ColumnWrapper, S: StringSource>(
-    source: Vec<Vec<S>>,
+    source: Vec<Vec<S>>
 ) -> <W as ColumnWrapper>::Wrapper {
     let fake: Vec<String> = Vec::with_capacity(source.len());
     let inner = Vec::column_from::<ArcColumnWrapper>(fake);
@@ -105,7 +110,7 @@ fn make_array_of_array<W: ColumnWrapper, S: StringSource>(
 
     let mut data = ArrayColumnData {
         inner,
-        offsets: List::with_capacity(source.len()),
+        offsets: List::with_capacity(source.len())
     };
 
     for vs in source {
@@ -143,7 +148,7 @@ fn make_opt_column<W: ColumnWrapper, S: StringSource>(source: Vec<Option<S>>) ->
 
     let mut data = NullableColumnData {
         inner,
-        nulls: Vec::with_capacity(source.len()),
+        nulls: Vec::with_capacity(source.len())
     };
 
     for value in source {
@@ -188,7 +193,7 @@ impl ColumnData for StringColumnData {
 
     fn clone_instance(&self) -> BoxColumnData {
         Box::new(Self {
-            pool: self.pool.clone(),
+            pool: self.pool.clone()
         })
     }
 

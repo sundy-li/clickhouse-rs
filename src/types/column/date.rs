@@ -1,25 +1,34 @@
-use std::{convert, fmt, sync::Arc};
+use std::convert;
+use std::fmt;
+use std::sync::Arc;
 
-use chrono::{prelude::*, Date};
+use chrono::prelude::*;
+use chrono::Date;
 use chrono_tz::Tz;
 
-use crate::{
-    binary::{Encoder, ReadEx},
-    errors::Result,
-    types::column::{
-        array::ArrayColumnData,
-        column_data::{BoxColumnData, ColumnData},
-        list::List,
-        nullable::NullableColumnData,
-        numeric::save_data,
-        ArcColumnWrapper, ColumnFrom, ColumnWrapper, Either,
-    },
-    types::{DateConverter, Marshal, SqlType, StatBuffer, Unmarshal, Value, ValueRef},
-};
+use crate::binary::Encoder;
+use crate::binary::ReadEx;
+use crate::errors::Result;
+use crate::types::column::array::ArrayColumnData;
+use crate::types::column::column_data::BoxColumnData;
+use crate::types::column::column_data::ColumnData;
+use crate::types::column::list::List;
+use crate::types::column::nullable::NullableColumnData;
+use crate::types::column::numeric::save_data;
+use crate::types::column::ArcColumnWrapper;
+use crate::types::column::ColumnFrom;
+use crate::types::column::ColumnWrapper;
+use crate::types::column::Either;
+use crate::types::DateConverter;
+use crate::types::Marshal;
+use crate::types::SqlType;
+use crate::types::StatBuffer;
+use crate::types::Unmarshal;
+use crate::types::Value;
+use crate::types::ValueRef;
 
 pub struct DateColumnData<T>
-where
-    T: StatBuffer
+where T: StatBuffer
         + Unmarshal<T>
         + Marshal
         + Copy
@@ -28,15 +37,14 @@ where
         + fmt::Display
         + Sync
         + Default
-        + 'static,
+        + 'static
 {
     data: List<T>,
-    tz: Tz,
+    tz: Tz
 }
 
 impl<T> DateColumnData<T>
-where
-    T: StatBuffer
+where T: StatBuffer
         + Unmarshal<T>
         + Marshal
         + Copy
@@ -45,19 +53,19 @@ where
         + fmt::Display
         + Sync
         + Default
-        + 'static,
+        + 'static
 {
     pub(crate) fn with_capacity(capacity: usize, timezone: Tz) -> DateColumnData<T> {
         DateColumnData {
             data: List::with_capacity(capacity),
-            tz: timezone,
+            tz: timezone
         }
     }
 
     pub(crate) fn load<R: ReadEx>(
         reader: &mut R,
         size: usize,
-        tz: Tz,
+        tz: Tz
     ) -> Result<DateColumnData<T>> {
         let mut data = List::with_capacity(size);
         unsafe {
@@ -88,7 +96,7 @@ impl ColumnFrom for Vec<Vec<Date<Tz>>> {
 
         let mut data = ArrayColumnData {
             inner,
-            offsets: List::with_capacity(source.len()),
+            offsets: List::with_capacity(source.len())
         };
 
         for vs in source {
@@ -113,7 +121,7 @@ impl ColumnFrom for Vec<Vec<DateTime<Tz>>> {
 
         let mut data = ArrayColumnData {
             inner,
-            offsets: List::with_capacity(source.len()),
+            offsets: List::with_capacity(source.len())
         };
 
         for vs in source {
@@ -136,7 +144,7 @@ impl ColumnFrom for Vec<Option<Date<Tz>>> {
 
         let mut data = NullableColumnData {
             inner,
-            nulls: Vec::with_capacity(source.len()),
+            nulls: Vec::with_capacity(source.len())
         };
 
         for value in source {
@@ -155,8 +163,7 @@ impl ColumnFrom for Vec<Option<Date<Tz>>> {
 }
 
 impl<T> ColumnData for DateColumnData<T>
-where
-    T: StatBuffer
+where T: StatBuffer
         + Unmarshal<T>
         + Marshal
         + Copy
@@ -167,7 +174,7 @@ where
         + Send
         + DateConverter
         + Default
-        + 'static,
+        + 'static
 {
     fn sql_type(&self) -> SqlType {
         T::date_type()
@@ -192,7 +199,7 @@ where
     fn clone_instance(&self) -> BoxColumnData {
         Box::new(Self {
             data: self.data.clone(),
-            tz: self.tz,
+            tz: self.tz
         })
     }
 
@@ -210,9 +217,8 @@ mod test {
     use chrono::TimeZone;
     use chrono_tz::Tz;
 
-    use crate::types::column::ArcColumnWrapper;
-
     use super::*;
+    use crate::types::column::ArcColumnWrapper;
 
     #[test]
     fn test_create_date() {

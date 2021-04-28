@@ -1,36 +1,37 @@
 use std::cmp;
 
-use crate::{
-    binary::{Encoder, ReadEx},
-    errors::Result,
-    types::{
-        column::column_data::BoxColumnData, from_sql::*, Column, ColumnType, SqlType, Value,
-        ValueRef,
-    },
-};
-
 use super::column_data::ColumnData;
+use crate::binary::Encoder;
+use crate::binary::ReadEx;
+use crate::errors::Result;
+use crate::types::column::column_data::BoxColumnData;
+use crate::types::from_sql::*;
+use crate::types::Column;
+use crate::types::ColumnType;
+use crate::types::SqlType;
+use crate::types::Value;
+use crate::types::ValueRef;
 
 pub(crate) struct FixedStringColumnData {
     buffer: Vec<u8>,
-    str_len: usize,
+    str_len: usize
 }
 
 pub(crate) struct FixedStringAdapter<K: ColumnType> {
     pub(crate) column: Column<K>,
-    pub(crate) str_len: usize,
+    pub(crate) str_len: usize
 }
 
 pub(crate) struct NullableFixedStringAdapter<K: ColumnType> {
     pub(crate) column: Column<K>,
-    pub(crate) str_len: usize,
+    pub(crate) str_len: usize
 }
 
 impl FixedStringColumnData {
     pub fn with_capacity(capacity: usize, str_len: usize) -> Self {
         Self {
             buffer: Vec::with_capacity(capacity * str_len),
-            str_len,
+            str_len
         }
     }
 
@@ -79,7 +80,7 @@ impl ColumnData for FixedStringColumnData {
     fn clone_instance(&self) -> BoxColumnData {
         Box::new(Self {
             buffer: self.buffer.clone(),
-            str_len: self.str_len,
+            str_len: self.str_len
         })
     }
 
@@ -114,7 +115,7 @@ impl<K: ColumnType> ColumnData for FixedStringAdapter<K> {
                     let string_ref: &[u8] = string_val.as_ref();
                     buffer.extend(string_ref);
                 }
-                _ => unimplemented!(),
+                _ => unimplemented!()
             }
             buffer.resize(self.str_len, 0);
             encoder.write_bytes(&buffer[..]);

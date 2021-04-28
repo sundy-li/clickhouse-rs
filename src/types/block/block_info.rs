@@ -1,7 +1,6 @@
-use crate::{
-    binary::{Encoder, ReadEx},
-    errors::Result,
-};
+use crate::binary::Encoder;
+use crate::binary::ReadEx;
+use crate::errors::Result;
 
 #[allow(dead_code)]
 #[derive(Copy, Clone)]
@@ -10,7 +9,7 @@ pub struct BlockInfo {
     is_overflows: bool,
     num2: u64,
     bucket_num: i32,
-    num3: u64,
+    num3: u64
 }
 
 impl Default for BlockInfo {
@@ -20,7 +19,7 @@ impl Default for BlockInfo {
             is_overflows: false,
             num2: 0,
             bucket_num: -1,
-            num3: 0,
+            num3: 0
         }
     }
 }
@@ -32,7 +31,7 @@ impl BlockInfo {
             is_overflows: reader.read_scalar()?,
             num2: reader.read_uvarint()?,
             bucket_num: reader.read_scalar()?,
-            num3: reader.read_uvarint()?,
+            num3: reader.read_uvarint()?
         };
         Ok(block_info)
     }

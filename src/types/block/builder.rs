@@ -1,16 +1,20 @@
-use std::{borrow::Cow, marker};
+use std::borrow::Cow;
+use std::marker;
 
 use chrono_tz::Tz;
 
-use crate::{
-    errors::{Error, FromSqlError, Result},
-    types::{
-        block::ColumnIdx,
-        column::{ArcColumnWrapper, ColumnData, Either},
-        Column, ColumnType, SqlType, Value,
-    },
-    Block,
-};
+use crate::errors::Error;
+use crate::errors::FromSqlError;
+use crate::errors::Result;
+use crate::types::block::ColumnIdx;
+use crate::types::column::ArcColumnWrapper;
+use crate::types::column::ColumnData;
+use crate::types::column::Either;
+use crate::types::Column;
+use crate::types::ColumnType;
+use crate::types::SqlType;
+use crate::types::Value;
+use crate::Block;
 
 pub trait RowBuilder {
     fn apply<K: ColumnType>(self, block: &mut Block<K>) -> Result<()>;
@@ -19,12 +23,11 @@ pub trait RowBuilder {
 pub struct RNil;
 
 pub struct RCons<T>
-where
-    T: RowBuilder,
+where T: RowBuilder
 {
     key: Cow<'static, str>,
     value: Value,
-    tail: T,
+    tail: T
 }
 
 impl RNil {
@@ -32,20 +35,19 @@ impl RNil {
         RCons {
             key,
             value,
-            tail: RNil,
+            tail: RNil
         }
     }
 }
 
 impl<T> RCons<T>
-where
-    T: RowBuilder,
+where T: RowBuilder
 {
     pub fn put(self, key: Cow<'static, str>, value: Value) -> RCons<Self> {
         RCons {
             key,
             value,
-            tail: self,
+            tail: self
         }
     }
 }
@@ -58,8 +60,7 @@ impl RowBuilder for RNil {
 }
 
 impl<T> RowBuilder for RCons<T>
-where
-    T: RowBuilder,
+where T: RowBuilder
 {
     #[inline(always)]
     fn apply<K: ColumnType>(self, block: &mut Block<K>) -> Result<()> {
@@ -80,7 +81,7 @@ impl RowBuilder for Vec<(String, Value)> {
 fn put_param<K: ColumnType>(
     key: Cow<'static, str>,
     value: Value,
-    block: &mut Block<K>,
+    block: &mut Block<K>
 ) -> Result<()> {
     let col_index = match key.as_ref().get_index(&block.columns) {
         Ok(col_index) => col_index,
@@ -95,9 +96,9 @@ fn put_param<K: ColumnType>(
                     data: <dyn ColumnData>::from_type::<ArcColumnWrapper>(
                         sql_type,
                         timezone,
-                        block.capacity,
+                        block.capacity
                     )?,
-                    _marker: marker::PhantomData,
+                    _marker: marker::PhantomData
                 };
 
                 block.columns.push(column);
@@ -106,7 +107,7 @@ fn put_param<K: ColumnType>(
                 return Err(Error::FromSql(FromSqlError::OutOfRange));
             }
         }
-        Err(err) => return Err(err),
+        Err(err) => return Err(err)
     };
 
     block.columns[col_index].push(value);
@@ -125,19 +126,22 @@ fn extract_timezone(value: &Value) -> Tz {
                 Tz::Zulu
             }
         }
-        _ => Tz::Zulu,
+        _ => Tz::Zulu
     }
 }
 
 #[cfg(test)]
 mod test {
     use chrono::prelude::*;
-    use chrono_tz::Tz::{self, UTC};
-
-    use crate::row;
-    use crate::types::{DateTimeType, Decimal, Simple, SqlType};
+    use chrono_tz::Tz::UTC;
+    use chrono_tz::Tz::{self};
 
     use super::*;
+    use crate::row;
+    use crate::types::DateTimeType;
+    use crate::types::Decimal;
+    use crate::types::Simple;
+    use crate::types::SqlType;
 
     #[test]
     fn test_push_row() {

@@ -1,15 +1,19 @@
-use std::{marker, sync::Arc};
+use std::marker;
+use std::sync::Arc;
 
-use crate::{
-    errors::Result,
-    types::{block::ColumnIdx, Block, Column, ColumnType, FromSql, SqlType},
-};
+use crate::errors::Result;
+use crate::types::block::ColumnIdx;
+use crate::types::Block;
+use crate::types::Column;
+use crate::types::ColumnType;
+use crate::types::FromSql;
+use crate::types::SqlType;
 
 /// A row from Clickhouse
 pub struct Row<'a, K: ColumnType> {
     pub(crate) row: usize,
     pub(crate) block_ref: BlockRef<'a, K>,
-    pub(crate) kind: marker::PhantomData<K>,
+    pub(crate) kind: marker::PhantomData<K>
 }
 
 impl<'a, K: ColumnType> Row<'a, K> {
@@ -17,7 +21,7 @@ impl<'a, K: ColumnType> Row<'a, K> {
     pub fn get<T, I>(&'a self, col: I) -> Result<T>
     where
         T: FromSql<'a>,
-        I: ColumnIdx + Copy,
+        I: ColumnIdx + Copy
     {
         self.block_ref.get(self.row, col)
     }
@@ -45,14 +49,14 @@ impl<'a, K: ColumnType> Row<'a, K> {
 
 pub(crate) enum BlockRef<'a, K: ColumnType> {
     Borrowed(&'a Block<K>),
-    Owned(Arc<Block<K>>),
+    Owned(Arc<Block<K>>)
 }
 
 impl<'a, K: ColumnType> Clone for BlockRef<'a, K> {
     fn clone(&self) -> Self {
         match self {
             BlockRef::Borrowed(block_ref) => BlockRef::Borrowed(*block_ref),
-            BlockRef::Owned(block_ref) => BlockRef::Owned(block_ref.clone()),
+            BlockRef::Owned(block_ref) => BlockRef::Owned(block_ref.clone())
         }
     }
 }
@@ -61,25 +65,25 @@ impl<'a, K: ColumnType> BlockRef<'a, K> {
     fn row_count(&self) -> usize {
         match self {
             BlockRef::Borrowed(block) => block.row_count(),
-            BlockRef::Owned(block) => block.row_count(),
+            BlockRef::Owned(block) => block.row_count()
         }
     }
 
     fn column_count(&self) -> usize {
         match self {
             BlockRef::Borrowed(block) => block.column_count(),
-            BlockRef::Owned(block) => block.column_count(),
+            BlockRef::Owned(block) => block.column_count()
         }
     }
 
     fn get<'s, T, I>(&'s self, row: usize, col: I) -> Result<T>
     where
         T: FromSql<'s>,
-        I: ColumnIdx + Copy,
+        I: ColumnIdx + Copy
     {
         match self {
             BlockRef::Borrowed(block) => block.get(row, col),
-            BlockRef::Owned(block) => block.get(row, col),
+            BlockRef::Owned(block) => block.get(row, col)
         }
     }
 
@@ -101,7 +105,7 @@ impl<'a, K: ColumnType> BlockRef<'a, K> {
 pub struct Rows<'a, K: ColumnType> {
     pub(crate) row: usize,
     pub(crate) block_ref: BlockRef<'a, K>,
-    pub(crate) kind: marker::PhantomData<K>,
+    pub(crate) kind: marker::PhantomData<K>
 }
 
 impl<'a, K: ColumnType> Iterator for Rows<'a, K> {
@@ -114,7 +118,7 @@ impl<'a, K: ColumnType> Iterator for Rows<'a, K> {
         let result = Some(Row {
             row: self.row,
             block_ref: self.block_ref.clone(),
-            kind: marker::PhantomData,
+            kind: marker::PhantomData
         });
         self.row += 1;
         result

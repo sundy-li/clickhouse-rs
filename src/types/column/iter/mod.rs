@@ -1,23 +1,30 @@
 #![allow(clippy::cast_ptr_alignment)]
 
-use std::{
-    iter::FusedIterator,
-    marker, mem,
-    net::{Ipv4Addr, Ipv6Addr},
-    ptr, slice,
-};
+use std::iter::FusedIterator;
+use std::marker;
+use std::mem;
+use std::net::Ipv4Addr;
+use std::net::Ipv6Addr;
+use std::ptr;
+use std::slice;
 
-use chrono::{prelude::*, Date};
+use chrono::prelude::*;
+use chrono::Date;
 use chrono_tz::Tz;
 
-use crate::{
-    errors::{Error, FromSqlError, Result},
-    types::{
-        column::{column_data::ArcColumnData, datetime64::to_datetime, StringPool},
-        decimal::NoBits,
-        Column, ColumnType, Complex, Decimal, Simple, SqlType,
-    },
-};
+use crate::errors::Error;
+use crate::errors::FromSqlError;
+use crate::errors::Result;
+use crate::types::column::column_data::ArcColumnData;
+use crate::types::column::datetime64::to_datetime;
+use crate::types::column::StringPool;
+use crate::types::decimal::NoBits;
+use crate::types::Column;
+use crate::types::ColumnType;
+use crate::types::Complex;
+use crate::types::Decimal;
+use crate::types::Simple;
+use crate::types::SqlType;
 
 macro_rules! simple_num_iterable {
     ( $($t:ty: $k:ident),* ) => {
@@ -124,13 +131,13 @@ pub trait Iterable<'a, K: ColumnType> {
 
 enum StringInnerIterator<'a> {
     String(&'a StringPool),
-    FixedString(*const u8, usize),
+    FixedString(*const u8, usize)
 }
 
 pub struct StringIterator<'a> {
     inner: StringInnerIterator<'a>,
     index: usize,
-    size: usize,
+    size: usize
 }
 
 pub struct DecimalIterator<'a> {
@@ -139,57 +146,57 @@ pub struct DecimalIterator<'a> {
     precision: u8,
     scale: u8,
     nobits: NoBits,
-    _marker: marker::PhantomData<&'a ()>,
+    _marker: marker::PhantomData<&'a ()>
 }
 
 pub struct Ipv4Iterator<'a> {
     ptr: *const u8,
     end: *const u8,
-    _marker: marker::PhantomData<&'a ()>,
+    _marker: marker::PhantomData<&'a ()>
 }
 
 pub struct Ipv6Iterator<'a> {
     ptr: *const u8,
     end: *const u8,
-    _marker: marker::PhantomData<&'a ()>,
+    _marker: marker::PhantomData<&'a ()>
 }
 
 pub struct UuidIterator<'a> {
     ptr: *const u8,
     end: *const u8,
-    _marker: marker::PhantomData<&'a ()>,
+    _marker: marker::PhantomData<&'a ()>
 }
 
 pub struct DateIterator<'a> {
     ptr: *const u16,
     end: *const u16,
     tz: Tz,
-    _marker: marker::PhantomData<&'a ()>,
+    _marker: marker::PhantomData<&'a ()>
 }
 
 enum DateTimeInnerIterator {
     DateTime32(*const u32, *const u32),
-    DateTime64(*const i64, *const i64, u32),
+    DateTime64(*const i64, *const i64, u32)
 }
 
 pub struct DateTimeIterator<'a> {
     inner: DateTimeInnerIterator,
     tz: Tz,
-    _marker: marker::PhantomData<&'a ()>,
+    _marker: marker::PhantomData<&'a ()>
 }
 
 pub struct NullableIterator<'a, I> {
     inner: I,
     ptr: *const u8,
     end: *const u8,
-    _marker: marker::PhantomData<&'a ()>,
+    _marker: marker::PhantomData<&'a ()>
 }
 
 pub struct ArrayIterator<'a, I> {
     inner: I,
     offsets: &'a [u64],
     index: usize,
-    size: usize,
+    size: usize
 }
 
 impl ExactSizeIterator for StringIterator<'_> {
@@ -260,7 +267,7 @@ impl<'a> DecimalIterator<'a> {
     unsafe fn next_unchecked_<T>(&mut self) -> Decimal
     where
         T: Copy + Sized,
-        i64: From<T>,
+        i64: From<T>
     {
         let current_value = *(self.ptr as *const T);
         self.ptr = (self.ptr as *const T).offset(1) as *const u8;
@@ -269,7 +276,7 @@ impl<'a> DecimalIterator<'a> {
             underlying: current_value.into(),
             nobits: self.nobits,
             precision: self.precision,
-            scale: self.scale,
+            scale: self.scale
         }
     }
 
@@ -277,7 +284,7 @@ impl<'a> DecimalIterator<'a> {
     unsafe fn next_unchecked(&mut self) -> Decimal {
         match self.nobits {
             NoBits::N32 => self.next_unchecked_::<i32>(),
-            NoBits::N64 => self.next_unchecked_::<i64>(),
+            NoBits::N64 => self.next_unchecked_::<i64>()
         }
     }
 
@@ -286,7 +293,7 @@ impl<'a> DecimalIterator<'a> {
         unsafe {
             match self.nobits {
                 NoBits::N32 => self.ptr = (self.ptr as *const i32).add(n) as *const u8,
-                NoBits::N64 => self.ptr = (self.ptr as *const i64).add(n) as *const u8,
+                NoBits::N64 => self.ptr = (self.ptr as *const i64).add(n) as *const u8
             }
         }
     }
@@ -297,7 +304,7 @@ impl<'a> ExactSizeIterator for DecimalIterator<'a> {
     fn len(&self) -> usize {
         let size = match self.nobits {
             NoBits::N32 => mem::size_of::<i32>(),
-            NoBits::N64 => mem::size_of::<i64>(),
+            NoBits::N64 => mem::size_of::<i64>()
         };
         (self.end as usize - self.ptr as usize) / size
     }
@@ -432,7 +439,7 @@ impl<'a> DateTimeIterator<'a> {
     fn post_inc_start(&mut self, n: usize) {
         match &mut self.inner {
             DateTimeInnerIterator::DateTime32(ptr, _) => unsafe { *ptr = ptr.add(n) },
-            DateTimeInnerIterator::DateTime64(ptr, _, _) => unsafe { *ptr = ptr.add(n) },
+            DateTimeInnerIterator::DateTime64(ptr, _, _) => unsafe { *ptr = ptr.add(n) }
         }
     }
 }
@@ -484,7 +491,7 @@ impl<'a> Iterator for DateTimeIterator<'a> {
             // This iterator is now empty.
             match &mut self.inner {
                 DateTimeInnerIterator::DateTime32(ptr, end) => *ptr = *end,
-                DateTimeInnerIterator::DateTime64(ptr, end, _) => *ptr = *end,
+                DateTimeInnerIterator::DateTime64(ptr, end, _) => *ptr = *end
             }
             return None;
         }
@@ -495,8 +502,7 @@ impl<'a> Iterator for DateTimeIterator<'a> {
 }
 
 impl<'a, I> ExactSizeIterator for NullableIterator<'a, I>
-where
-    I: Iterator,
+where I: Iterator
 {
     #[inline(always)]
     fn len(&self) -> usize {
@@ -506,8 +512,7 @@ where
 }
 
 impl<'a, I> Iterator for NullableIterator<'a, I>
-where
-    I: Iterator,
+where I: Iterator
 {
     type Item = Option<I::Item>;
 
@@ -604,7 +609,7 @@ impl<'a> Iterable<'a, Simple> for Ipv4Addr {
         Ok(Ipv4Iterator {
             ptr,
             end,
-            _marker: marker::PhantomData,
+            _marker: marker::PhantomData
         })
     }
 }
@@ -625,7 +630,7 @@ impl<'a> Iterable<'a, Simple> for Ipv6Addr {
         Ok(Ipv6Iterator {
             ptr,
             end,
-            _marker: marker::PhantomData,
+            _marker: marker::PhantomData
         })
     }
 }
@@ -646,7 +651,7 @@ impl<'a> Iterable<'a, Simple> for uuid::Uuid {
         Ok(UuidIterator {
             ptr,
             end,
-            _marker: marker::PhantomData,
+            _marker: marker::PhantomData
         })
     }
 }
@@ -662,7 +667,7 @@ impl<'a> Iterable<'a, Simple> for &[u8] {
                     let mut string_pool: *const u8 = ptr::null();
                     column.get_internal(
                         &[&mut string_pool, &mut size as *mut usize as *mut *const u8],
-                        0,
+                        0
                     )?;
                     &*(string_pool as *const StringPool)
                 };
@@ -674,7 +679,7 @@ impl<'a> Iterable<'a, Simple> for &[u8] {
                     let mut buffer: *const u8 = ptr::null();
                     column.get_internal(
                         &[&mut buffer, &mut size as *mut usize as *mut *const u8],
-                        0,
+                        0
                     )?;
                     assert_ne!(buffer, ptr::null());
                     buffer
@@ -685,7 +690,7 @@ impl<'a> Iterable<'a, Simple> for &[u8] {
             _ => {
                 return Err(Error::FromSql(FromSqlError::InvalidType {
                     src: column.sql_type().to_string(),
-                    dst: SqlType::String.to_string(),
+                    dst: SqlType::String.to_string()
                 }))
             }
         };
@@ -693,7 +698,7 @@ impl<'a> Iterable<'a, Simple> for &[u8] {
         Ok(StringIterator {
             inner,
             size,
-            index: 0,
+            index: 0
         })
     }
 }
@@ -707,7 +712,7 @@ impl<'a> Iterable<'a, Simple> for Decimal {
         } else {
             return Err(Error::FromSql(FromSqlError::InvalidType {
                 src: column.sql_type().to_string(),
-                dst: SqlType::Decimal(255, 255).to_string(),
+                dst: SqlType::Decimal(255, 255).to_string()
             }));
         };
 
@@ -719,9 +724,9 @@ impl<'a> Iterable<'a, Simple> for Decimal {
                 &[
                     &mut ptr,
                     &mut size as *mut usize as *mut *const u8,
-                    &mut nobits as *mut NoBits as *mut *const u8,
+                    &mut nobits as *mut NoBits as *mut *const u8
                 ],
-                0,
+                0
             )?;
             assert_ne!(ptr, ptr::null());
             (ptr, size, nobits)
@@ -730,7 +735,7 @@ impl<'a> Iterable<'a, Simple> for Decimal {
         let end = unsafe {
             match nobits {
                 NoBits::N32 => (ptr as *const u32).add(size) as *const u8,
-                NoBits::N64 => (ptr as *const u64).add(size) as *const u8,
+                NoBits::N64 => (ptr as *const u64).add(size) as *const u8
             }
         };
 
@@ -740,7 +745,7 @@ impl<'a> Iterable<'a, Simple> for Decimal {
             precision,
             scale,
             nobits,
-            _marker: marker::PhantomData,
+            _marker: marker::PhantomData
         })
     }
 }
@@ -754,7 +759,7 @@ impl<'a> Iterable<'a, Simple> for DateTime<Tz> {
             _ => {
                 return Err(Error::FromSql(FromSqlError::InvalidType {
                     src: column.sql_type().to_string(),
-                    dst: "DateTime<?>".into(),
+                    dst: "DateTime<?>".into()
                 }));
             }
         }
@@ -777,7 +782,7 @@ impl<'a> Iterable<'a, Simple> for DateTime<Tz> {
         Ok(DateTimeIterator {
             inner,
             tz,
-            _marker: marker::PhantomData,
+            _marker: marker::PhantomData
         })
     }
 }
@@ -789,7 +794,7 @@ impl<'a> Iterable<'a, Simple> for Date<Tz> {
         if column_type != SqlType::Date {
             return Err(Error::FromSql(FromSqlError::InvalidType {
                 src: column.sql_type().to_string(),
-                dst: SqlType::Date.to_string(),
+                dst: SqlType::Date.to_string()
             }));
         };
 
@@ -801,7 +806,7 @@ impl<'a> Iterable<'a, Simple> for Date<Tz> {
             ptr,
             end,
             tz,
-            _marker: marker::PhantomData,
+            _marker: marker::PhantomData
         })
     }
 }
@@ -817,9 +822,9 @@ fn date_iter(column: &Column<Simple>) -> Result<(*const u8, usize, Tz, Option<u3
                 &mut ptr as *mut *const u8,
                 &mut tz as *mut *const Tz as *mut *const u8,
                 &mut size as *mut usize as *mut *const u8,
-                &mut precision as *mut Option<u32> as *mut *const u8,
+                &mut precision as *mut Option<u32> as *mut *const u8
             ],
-            0,
+            0
         )?;
         assert_ne!(ptr, ptr::null());
         assert_ne!(tz, ptr::null());
@@ -830,8 +835,7 @@ fn date_iter(column: &Column<Simple>) -> Result<(*const u8, usize, Tz, Option<u3
 }
 
 impl<'a, T> Iterable<'a, Simple> for Option<T>
-where
-    T: Iterable<'a, Simple>,
+where T: Iterable<'a, Simple>
 {
     type Iter = NullableIterator<'a, T::Iter>;
 
@@ -841,7 +845,7 @@ where
         } else {
             return Err(Error::FromSql(FromSqlError::InvalidType {
                 src: column_type.to_string(),
-                dst: "Nullable".into(),
+                dst: "Nullable".into()
             }));
         };
 
@@ -850,7 +854,7 @@ where
             let mut size: usize = 0;
             column.get_internal(
                 &[&mut ptr, &mut size as *mut usize as *mut *const u8],
-                column_type.level(),
+                column_type.level()
             )?;
             assert_ne!(ptr, ptr::null());
             let end = ptr.add(size);
@@ -861,14 +865,13 @@ where
             inner,
             ptr,
             end,
-            _marker: marker::PhantomData,
+            _marker: marker::PhantomData
         })
     }
 }
 
 impl<'a, T> Iterable<'a, Simple> for Vec<T>
-where
-    T: Iterable<'a, Simple>,
+where T: Iterable<'a, Simple>
 {
     type Iter = ArrayIterator<'a, T::Iter>;
 
@@ -878,7 +881,7 @@ where
         } else {
             return Err(Error::FromSql(FromSqlError::InvalidType {
                 src: column_type.to_string(),
-                dst: "Array".into(),
+                dst: "Array".into()
             }));
         };
 
@@ -887,7 +890,7 @@ where
             let mut ptr: *const u8 = ptr::null();
             column.get_internal(
                 &[&mut ptr, &mut size as *mut usize as *mut *const u8],
-                column_type.level(),
+                column_type.level()
             )?;
             assert_ne!(ptr, ptr::null());
             slice::from_raw_parts(ptr as *const u64, size)
@@ -897,14 +900,13 @@ where
             inner,
             offsets,
             index: 0,
-            size,
+            size
         })
     }
 }
 
 pub struct ComplexIterator<'a, T>
-where
-    T: Iterable<'a, Simple>,
+where T: Iterable<'a, Simple>
 {
     column_type: SqlType,
 
@@ -913,12 +915,11 @@ where
     current_index: usize,
     current: Option<<T as Iterable<'a, Simple>>::Iter>,
 
-    _marker: marker::PhantomData<T>,
+    _marker: marker::PhantomData<T>
 }
 
 impl<'a, T> Iterator for ComplexIterator<'a, T>
-where
-    T: Iterable<'a, Simple>,
+where T: Iterable<'a, Simple>
 {
     type Item = <<T as Iterable<'a, Simple>>::Iter as Iterator>::Item;
 
@@ -931,7 +932,7 @@ where
             let column: Column<Simple> = Column {
                 name: String::new(),
                 data: self.data[self.current_index].clone(),
-                _marker: marker::PhantomData,
+                _marker: marker::PhantomData
             };
 
             let iter =
@@ -943,7 +944,7 @@ where
 
         let ret = match self.current {
             None => None,
-            Some(ref mut iter) => iter.next(),
+            Some(ref mut iter) => iter.next()
         };
 
         match ret {
@@ -951,14 +952,13 @@ where
                 self.current = None;
                 self.next()
             }
-            Some(r) => Some(r),
+            Some(r) => Some(r)
         }
     }
 }
 
 impl<'a, T> Iterable<'a, Complex> for T
-where
-    T: Iterable<'a, Simple> + 'a,
+where T: Iterable<'a, Simple> + 'a
 {
     type Iter = ComplexIterator<'a, T>;
 
@@ -968,7 +968,7 @@ where
 
             column.get_internal(
                 &[&mut data as *mut *const Vec<ArcColumnData> as *mut *const u8],
-                0xff,
+                0xff
             )?;
 
             &*data
@@ -981,7 +981,7 @@ where
             current_index: 0,
             current: None,
 
-            _marker: marker::PhantomData,
+            _marker: marker::PhantomData
         })
     }
 }

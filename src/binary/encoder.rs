@@ -1,15 +1,12 @@
-use std::io::Write;
-
-use crate::{
-    binary,
-    types::{Marshal, StatBuffer},
-};
+use crate::binary;
+use crate::types::Marshal;
+use crate::types::StatBuffer;
 
 const MAX_VARINT_LEN64: usize = 10;
 
 #[derive(Default)]
 pub struct Encoder {
-    buffer: Vec<u8>,
+    buffer: Vec<u8>
 }
 
 impl Encoder {
@@ -34,9 +31,7 @@ impl Encoder {
     }
 
     pub fn write<T>(&mut self, value: T)
-    where
-        T: Copy + Marshal + StatBuffer,
-    {
+    where T: Copy + Marshal + StatBuffer {
         let mut buffer = T::buffer();
         value.marshal(buffer.as_mut());
         self.write_bytes(buffer.as_ref());
@@ -48,11 +43,6 @@ impl Encoder {
 
     pub fn get_buffer(self) -> Vec<u8> {
         self.buffer
-    }
-
-    pub fn write_to(self, writer: &mut dyn Write) -> std::io::Result<()> {
-        writer.write_all(&self.buffer)?;
-        writer.flush()
     }
 
     pub fn get_buffer_ref(&self) -> &[u8] {

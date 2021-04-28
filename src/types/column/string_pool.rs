@@ -1,4 +1,5 @@
-use std::{io::Write, slice};
+use std::io::Write;
+use std::slice;
 
 const AVG_STR_SIZE: usize = 80;
 
@@ -6,7 +7,7 @@ const AVG_STR_SIZE: usize = 80;
 struct StringPtr {
     chunk: usize,
     shift: usize,
-    len: usize,
+    len: usize
 }
 
 #[derive(Clone)]
@@ -14,12 +15,12 @@ pub(crate) struct StringPool {
     chunks: Vec<Vec<u8>>,
     pointers: Vec<StringPtr>,
     position: usize,
-    capacity: usize,
+    capacity: usize
 }
 
 pub(crate) struct StringIter<'a> {
     pool: &'a StringPool,
-    index: usize,
+    index: usize
 }
 
 impl<'a> Iterator for StringIter<'a> {
@@ -37,8 +38,7 @@ impl<'a> Iterator for StringIter<'a> {
 }
 
 impl<T> From<Vec<T>> for StringPool
-where
-    T: AsRef<[u8]>,
+where T: AsRef<[u8]>
 {
     fn from(source: Vec<T>) -> Self {
         let mut pool = StringPool::with_capacity(source.len());
@@ -56,7 +56,7 @@ impl StringPool {
             pointers: Vec::with_capacity(capacity),
             chunks: Vec::new(),
             position: 0,
-            capacity,
+            capacity
         }
     }
 
@@ -86,7 +86,7 @@ impl StringPool {
             self.pointers.push(StringPtr {
                 len: size,
                 shift: position,
-                chunk,
+                chunk
             });
 
             let buffer = &mut self.chunks[chunk];
@@ -131,15 +131,16 @@ impl StringPool {
     pub(crate) fn strings(&self) -> StringIter {
         StringIter {
             pool: self,
-            index: 0,
+            index: 0
         }
     }
 }
 
 #[cfg(test)]
 mod test {
-    use super::*;
     use std::io::Write;
+
+    use super::*;
 
     #[test]
     fn test_allocate() {

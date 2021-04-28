@@ -8,8 +8,7 @@ edition = "2018"
 
 [features]
 default = ["tokio_io"]
-tls = ["tokio-native-tls", "native-tls"]
-async_std = ["async-std"]
+tls = ["tokio-native-tls"]
 tokio_io = ["tokio"]
 
 
@@ -19,15 +18,19 @@ thiserror = "1.0.20"
 bitflags = "1.2.1"
 chrono-tz = "0.5"
 futures = "0.3"
+futures-core = "0.3.5"
+futures-sink = "0.3.5"
 url="^2"
 byteorder = "^1.3"
 hostname = "^0.3"
 lz4 = "1.23.2"
 combine = "4.2.3"
 pin-project = "1.0.4"
+bytes = "1.0.0"
 uuid = "0.8.1"
 tokio-stream = "0.1"
 async-trait = "0.1.48"
+
 
 [dependencies.clickhouse-rs-cityhash-sys]
 path = "clickhouse-rs-cityhash-sys"
@@ -42,16 +45,21 @@ features = [ "std" ]
 [dependencies.tokio]
 version = "1.0"
 default-features = false
-features = ["io-util", "time", "net", "sync", "rt-multi-thread", "macros", "rt"]
+features = ["full"]
 optional = true
+
+
+[dependencies.tokio-util]
+version = "0.6.6"
+features = ["full"]
+
+[dependencies.futures-util]
+version = "0.3.12"
+features = ["sink"]
 
 [dependencies.log]
 version = "0.4.8"
 features = ["std", "serde"]
-
-[dependencies.async-std]
-version = "1.6"
-optional = true
 
 [dependencies.native-tls]
 version = "0.2"
@@ -60,6 +68,7 @@ optional = true
 [dependencies.tokio-native-tls]
 version = "^0.3"
 optional = true
+
 
 [dev-dependencies]
 env_logger = "^0.8"

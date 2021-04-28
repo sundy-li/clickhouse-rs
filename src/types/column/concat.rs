@@ -1,16 +1,19 @@
 use std::iter;
 
-use crate::{
-    binary::Encoder,
-    errors::{Error, FromSqlError, Result},
-    types::{SqlType, Value, ValueRef},
-};
-
-use super::column_data::{ArcColumnData, BoxColumnData, ColumnData};
+use super::column_data::ArcColumnData;
+use super::column_data::BoxColumnData;
+use super::column_data::ColumnData;
+use crate::binary::Encoder;
+use crate::errors::Error;
+use crate::errors::FromSqlError;
+use crate::errors::Result;
+use crate::types::SqlType;
+use crate::types::Value;
+use crate::types::ValueRef;
 
 pub struct ConcatColumnData {
     data: Vec<ArcColumnData>,
-    index: Vec<usize>,
+    index: Vec<usize>
 }
 
 impl ConcatColumnData {
@@ -77,9 +80,7 @@ impl ColumnData for ConcatColumnData {
 }
 
 fn build_index<'a, I>(sizes: I) -> Vec<usize>
-where
-    I: iter::Iterator<Item = usize> + 'a,
-{
+where I: iter::Iterator<Item = usize> + 'a {
     let mut acc = 0;
     let mut index = vec![acc];
 
@@ -119,11 +120,10 @@ fn find_chunk(index: &[usize], ix: usize) -> usize {
 mod test {
     use std::sync::Arc;
 
-    use crate::types::column::{
-        column_data::ColumnDataExt, numeric::VectorColumnData, string::StringColumnData,
-    };
-
     use super::*;
+    use crate::types::column::column_data::ColumnDataExt;
+    use crate::types::column::numeric::VectorColumnData;
+    use crate::types::column::string::StringColumnData;
 
     #[test]
     fn test_build_index() {

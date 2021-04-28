@@ -1,12 +1,12 @@
 use std::io::Read;
 
-use crate::errors::{Result, ServerError};
+use crate::binary::Encoder;
+use crate::binary::ReadEx;
+use crate::error_codes::ErrorCodes;
+use crate::errors::Error;
+use crate::errors::Result;
+use crate::errors::ServerError;
 use crate::protocols::*;
-use crate::{
-    binary::{Encoder, ReadEx},
-    error_codes::ErrorCodes,
-    errors::Error,
-};
 
 #[derive(Default, Debug)]
 pub struct HelloRequest {
@@ -20,7 +20,7 @@ pub struct HelloRequest {
     pub password: String,
 
     // Not set currently
-    pub client_version_patch: u64,
+    pub client_version_patch: u64
 }
 
 impl HelloRequest {
@@ -34,7 +34,7 @@ impl HelloRequest {
             user: reader.read_string()?,
             password: reader.read_string()?,
 
-            client_version_patch: 0,
+            client_version_patch: 0
         };
 
         if request.user.is_empty() {
@@ -42,7 +42,7 @@ impl HelloRequest {
                 name: "UNEXPECTED_PACKET_FROM_CLIENT".to_string(),
                 code: ErrorCodes::UNEXPECTED_PACKET_FROM_CLIENT,
                 message: "Unexpected packet from client (no user in Hello package)".to_string(),
-                stack_trace: "".to_string(),
+                stack_trace: "".to_string()
             }));
         }
 
@@ -61,7 +61,7 @@ pub struct HelloResponse {
     pub dbms_tcp_protocol_version: u64,
     pub timezone: String,
     pub server_display_name: String,
-    pub dbms_version_patch: u64,
+    pub dbms_version_patch: u64
 }
 
 impl HelloResponse {

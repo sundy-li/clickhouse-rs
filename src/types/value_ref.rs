@@ -1,19 +1,27 @@
-use std::{convert, fmt, str, sync::Arc};
+use std::convert;
+use std::fmt;
+use std::str;
+use std::sync::Arc;
 
 use chrono::prelude::*;
 use chrono_tz::Tz;
-
-use crate::{
-    errors::{Error, FromSqlError, Result},
-    types::{
-        column::{datetime64::to_datetime, Either},
-        decimal::Decimal,
-        value::{decode_ipv4, decode_ipv6, AppDate, AppDateTime},
-        DateTimeType, Enum16, Enum8, SqlType, Value,
-    },
-};
-
 use uuid::Uuid;
+
+use crate::errors::Error;
+use crate::errors::FromSqlError;
+use crate::errors::Result;
+use crate::types::column::datetime64::to_datetime;
+use crate::types::column::Either;
+use crate::types::decimal::Decimal;
+use crate::types::value::decode_ipv4;
+use crate::types::value::decode_ipv6;
+use crate::types::value::AppDate;
+use crate::types::value::AppDateTime;
+use crate::types::DateTimeType;
+use crate::types::Enum16;
+use crate::types::Enum8;
+use crate::types::SqlType;
+use crate::types::Value;
 
 #[derive(Clone, Debug)]
 pub enum ValueRef<'a> {
@@ -38,7 +46,7 @@ pub enum ValueRef<'a> {
     Ipv6([u8; 16]),
     Uuid([u8; 16]),
     Enum16(Vec<(String, i16)>, Enum16),
-    Enum8(Vec<(String, i8)>, Enum8),
+    Enum8(Vec<(String, i8)>, Enum8)
 }
 
 impl<'a> PartialEq for ValueRef<'a> {
@@ -79,7 +87,7 @@ impl<'a> PartialEq for ValueRef<'a> {
 
                 this_time == that_time
             }
-            _ => false,
+            _ => false
         }
     }
 }
@@ -97,7 +105,7 @@ impl<'a> fmt::Display for ValueRef<'a> {
             ValueRef::Int64(v) => fmt::Display::fmt(v, f),
             ValueRef::String(v) => match str::from_utf8(v) {
                 Ok(s) => fmt::Display::fmt(s, f),
-                Err(_) => write!(f, "{:?}", *v),
+                Err(_) => write!(f, "{:?}", *v)
             },
             ValueRef::Float32(v) => fmt::Display::fmt(v, f),
             ValueRef::Float64(v) => fmt::Display::fmt(v, f),
@@ -126,7 +134,7 @@ impl<'a> fmt::Display for ValueRef<'a> {
             }
             ValueRef::Nullable(v) => match v {
                 Either::Left(_) => write!(f, "NULL"),
-                Either::Right(inner) => write!(f, "{}", inner),
+                Either::Right(inner) => write!(f, "{}", inner)
             },
             ValueRef::Array(_, vs) => {
                 let cells: Vec<String> = vs.iter().map(|v| format!("{}", v)).collect();
@@ -145,11 +153,11 @@ impl<'a> fmt::Display for ValueRef<'a> {
                 buffer[8..].reverse();
                 match Uuid::from_slice(&buffer) {
                     Ok(uuid) => write!(f, "{}", uuid),
-                    Err(e) => write!(f, "{}", e),
+                    Err(e) => write!(f, "{}", e)
                 }
             }
             ValueRef::Enum8(_, v) => fmt::Display::fmt(v, f),
-            ValueRef::Enum16(_, v) => fmt::Display::fmt(v, f),
+            ValueRef::Enum16(_, v) => fmt::Display::fmt(v, f)
         }
     }
 }
@@ -172,7 +180,7 @@ impl<'a> convert::From<ValueRef<'a>> for SqlType {
             ValueRef::DateTime(_, _) => SqlType::DateTime(DateTimeType::DateTime32),
             ValueRef::Nullable(u) => match u {
                 Either::Left(sql_type) => SqlType::Nullable(sql_type),
-                Either::Right(value_ref) => SqlType::Nullable(SqlType::from(*value_ref).into()),
+                Either::Right(value_ref) => SqlType::Nullable(SqlType::from(*value_ref).into())
             },
             ValueRef::Array(t, _) => SqlType::Array(t),
             ValueRef::Decimal(v) => SqlType::Decimal(v.precision, v.scale),
@@ -197,7 +205,7 @@ impl<'a> ValueRef<'a> {
         let from = SqlType::from(self.clone()).to_string();
         Err(Error::FromSql(FromSqlError::InvalidType {
             src: from,
-            dst: "&str".into(),
+            dst: "&str".into()
         }))
     }
 
@@ -213,7 +221,7 @@ impl<'a> ValueRef<'a> {
         let from = SqlType::from(self.clone()).to_string();
         Err(Error::FromSql(FromSqlError::InvalidType {
             src: from,
-            dst: "&[u8]".into(),
+            dst: "&[u8]".into()
         }))
     }
 }
@@ -255,7 +263,7 @@ impl<'a> From<ValueRef<'a>> for Value {
             ValueRef::Ipv4(v) => Value::Ipv4(v),
             ValueRef::Ipv6(v) => Value::Ipv6(v),
             ValueRef::Uuid(v) => Value::Uuid(v),
-            ValueRef::DateTime64(v, params) => Value::DateTime64(v, *params),
+            ValueRef::DateTime64(v, params) => Value::DateTime64(v, *params)
         }
     }
 }
@@ -336,7 +344,7 @@ impl<'a> From<&'a Value> for ValueRef<'a> {
             Value::Enum16(values, v) => ValueRef::Enum16(values.to_vec(), *v),
             Value::Ipv4(v) => ValueRef::Ipv4(*v),
             Value::Ipv6(v) => ValueRef::Ipv6(*v),
-            Value::Uuid(v) => ValueRef::Uuid(*v),
+            Value::Uuid(v) => ValueRef::Uuid(*v)
         }
     }
 }

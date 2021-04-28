@@ -1,21 +1,20 @@
 use chrono::prelude::*;
 use chrono_tz::Tz;
 
-use crate::{
-    binary::{Encoder, ReadEx},
-    errors::Result,
-    types::{
-        column::{
-            column_data::{BoxColumnData, ColumnData},
-            list::List,
-        },
-        DateTimeType, SqlType, Value, ValueRef,
-    },
-};
+use crate::binary::Encoder;
+use crate::binary::ReadEx;
+use crate::errors::Result;
+use crate::types::column::column_data::BoxColumnData;
+use crate::types::column::column_data::ColumnData;
+use crate::types::column::list::List;
+use crate::types::DateTimeType;
+use crate::types::SqlType;
+use crate::types::Value;
+use crate::types::ValueRef;
 
 pub struct DateTime64ColumnData {
     data: List<i64>,
-    params: (u32, Tz),
+    params: (u32, Tz)
 }
 
 impl DateTime64ColumnData {
@@ -23,7 +22,7 @@ impl DateTime64ColumnData {
         reader: &mut R,
         size: usize,
         precision: u32,
-        tz: Tz,
+        tz: Tz
     ) -> Result<DateTime64ColumnData> {
         let mut data = List::with_capacity(size);
         unsafe {
@@ -32,14 +31,14 @@ impl DateTime64ColumnData {
         reader.read_bytes(data.as_mut())?;
         Ok(DateTime64ColumnData {
             data,
-            params: (precision, tz),
+            params: (precision, tz)
         })
     }
 
     pub(crate) fn with_capacity(capacity: usize, precision: u32, timezone: Tz) -> Self {
         DateTime64ColumnData {
             data: List::with_capacity(capacity),
-            params: (precision, timezone),
+            params: (precision, timezone)
         }
     }
 }
@@ -73,7 +72,7 @@ impl ColumnData for DateTime64ColumnData {
     fn clone_instance(&self) -> BoxColumnData {
         Box::new(Self {
             data: self.data.clone(),
-            params: self.params,
+            params: self.params
         })
     }
 

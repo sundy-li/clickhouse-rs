@@ -1,33 +1,42 @@
-use std::{borrow::Cow, collections::HashMap, fmt, mem, pin::Pin, sync::Mutex};
+use std::borrow::Cow;
+use std::collections::HashMap;
+use std::fmt;
+use std::mem;
+use std::pin::Pin;
+use std::sync::Mutex;
 
 use chrono::prelude::*;
 use chrono_tz::Tz;
 use hostname::get;
-
 use lazy_static::lazy_static;
 
-use crate::errors::ServerError;
-
-pub use self::{
-    block::{Block, RCons, RNil, Row, RowBuilder, Rows},
-    column::{Column, ColumnType, Complex, Simple},
-    decimal::Decimal,
-    enums::{Enum16, Enum8},
-    from_sql::{FromSql, FromSqlResult},
-    options::Options,
-    query::Query,
-    result_writer::ResultWriter,
-    value::Value,
-    value_ref::ValueRef,
-};
-
-pub(crate) use self::{
-    date_converter::DateConverter,
-    marshal::Marshal,
-    options::{IntoOptions, OptionsSource},
-    stat_buffer::StatBuffer,
-    unmarshal::Unmarshal,
-};
+pub use self::block::Block;
+pub use self::block::RCons;
+pub use self::block::RNil;
+pub use self::block::Row;
+pub use self::block::RowBuilder;
+pub use self::block::Rows;
+pub use self::column::Column;
+pub use self::column::ColumnType;
+pub use self::column::Complex;
+pub use self::column::Simple;
+pub(crate) use self::date_converter::DateConverter;
+pub use self::decimal::Decimal;
+pub use self::enums::Enum16;
+pub use self::enums::Enum8;
+pub use self::from_sql::FromSql;
+pub use self::from_sql::FromSqlResult;
+pub(crate) use self::marshal::Marshal;
+pub use self::options::Options;
+pub(crate) use self::options::OptionsSource;
+pub use self::query::Query;
+pub(crate) use self::stat_buffer::StatBuffer;
+pub(crate) use self::unmarshal::Unmarshal;
+pub use self::value::Value;
+pub use self::value_ref::ValueRef;
+use crate::binary::Encoder;
+use crate::protocols::DBMS_MIN_REVISION_WITH_CLIENT_WRITE_INFO;
+use crate::protocols::SERVER_PROGRESS;
 
 pub(crate) mod column;
 mod marshal;
@@ -46,13 +55,26 @@ mod query;
 mod decimal;
 mod enums;
 mod options;
-mod result_writer;
 
 #[derive(Copy, Clone, Debug, Default, PartialEq)]
-pub(crate) struct Progress {
+pub struct Progress {
     pub rows: u64,
     pub bytes: u64,
-    pub total_rows: u64,
+    pub total_rows: u64
+}
+
+impl Progress {
+    pub fn write(&self, encoder: &mut Encoder, client_revision: u64) {
+        encoder.uvarint(SERVER_PROGRESS);
+        encoder.uvarint(self.rows);
+        encoder.uvarint(self.bytes);
+        encoder.uvarint(self.total_rows);
+
+        if client_revision >= DBMS_MIN_REVISION_WITH_CLIENT_WRITE_INFO {
+            encoder.uvarint(0);
+            encoder.uvarint(0);
+        }
+    }
 }
 
 #[derive(Copy, Clone, Default, Debug, PartialEq)]
@@ -62,7 +84,7 @@ pub(crate) struct ProfileInfo {
     pub blocks: u64,
     pub applied_limit: bool,
     pub rows_before_limit: u64,
-    pub calculated_rows_before_limit: bool,
+    pub calculated_rows_before_limit: bool
 }
 
 #[derive(Clone, PartialEq)]
@@ -71,7 +93,7 @@ pub(crate) struct ServerInfo {
     pub revision: u64,
     pub minor_version: u64,
     pub major_version: u64,
-    pub timezone: Tz,
+    pub timezone: Tz
 }
 
 impl fmt::Debug for ServerInfo {
@@ -88,7 +110,7 @@ impl fmt::Debug for ServerInfo {
 pub(crate) struct Context {
     pub(crate) server_info: ServerInfo,
     pub(crate) hostname: String,
-    pub(crate) options: OptionsSource,
+    pub(crate) options: OptionsSource
 }
 
 impl Default for ServerInfo {
@@ -98,7 +120,7 @@ impl Default for ServerInfo {
             revision: 0,
             minor_version: 0,
             major_version: 0,
-            timezone: Tz::Zulu,
+            timezone: Tz::Zulu
         }
     }
 }
@@ -117,46 +139,7 @@ impl Default for Context {
         Self {
             server_info: ServerInfo::default(),
             hostname: get().unwrap().into_string().unwrap(),
-            options: OptionsSource::default(),
-        }
-    }
-}
-
-#[derive(Clone)]
-pub(crate) enum Packet<S> {
-    Hello(S, ServerInfo),
-    Pong(S),
-    Progress(Progress),
-    ProfileInfo(ProfileInfo),
-    Exception(ServerError),
-    Block(Block),
-    Eof(S),
-}
-
-impl<S> fmt::Debug for Packet<S> {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        match self {
-            Packet::Hello(_, info) => write!(f, "Hello({:?})", info),
-            Packet::Pong(_) => write!(f, "Pong"),
-            Packet::Progress(p) => write!(f, "Progress({:?})", p),
-            Packet::ProfileInfo(info) => write!(f, "ProfileInfo({:?})", info),
-            Packet::Exception(e) => write!(f, "Exception({:?})", e),
-            Packet::Block(b) => write!(f, "Block({:?})", b),
-            Packet::Eof(_) => write!(f, "Eof"),
-        }
-    }
-}
-
-impl<S> Packet<S> {
-    pub fn bind<N>(self, transport: &mut Option<N>) -> Packet<N> {
-        match self {
-            Packet::Hello(_, server_info) => Packet::Hello(transport.take().unwrap(), server_info),
-            Packet::Pong(_) => Packet::Pong(transport.take().unwrap()),
-            Packet::Progress(progress) => Packet::Progress(progress),
-            Packet::ProfileInfo(profile_info) => Packet::ProfileInfo(profile_info),
-            Packet::Exception(exception) => Packet::Exception(exception),
-            Packet::Block(block) => Packet::Block(block),
-            Packet::Eof(_) => Packet::Eof(transport.take().unwrap()),
+            options: OptionsSource::default()
         }
     }
 }
@@ -198,7 +181,7 @@ has_sql_type! {
 pub enum DateTimeType {
     DateTime32,
     DateTime64(u32, Tz),
-    Chrono,
+    Chrono
 }
 
 #[derive(Clone, Debug, Eq, PartialEq, Hash)]
@@ -224,7 +207,7 @@ pub enum SqlType {
     Array(&'static SqlType),
     Decimal(u8, u8),
     Enum8(Vec<(String, i8)>),
-    Enum16(Vec<(String, i16)>),
+    Enum16(Vec<(String, i16)>)
 }
 
 lazy_static! {
@@ -312,7 +295,7 @@ impl SqlType {
         match self {
             SqlType::Nullable(inner) => 1 + inner.level(),
             SqlType::Array(inner) => 1 + inner.level(),
-            _ => 0,
+            _ => 0
         }
     }
 }

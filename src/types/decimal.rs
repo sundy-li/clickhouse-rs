@@ -1,4 +1,5 @@
-use std::{cmp::Ordering, fmt};
+use std::cmp::Ordering;
+use std::fmt;
 
 static FACTORS10: &[i64] = &[
     1,
@@ -19,7 +20,7 @@ static FACTORS10: &[i64] = &[
     1_000_000_000_000_000,
     10_000_000_000_000_000,
     100_000_000_000_000_000,
-    1_000_000_000_000_000_000,
+    1_000_000_000_000_000_000
 ];
 
 pub trait Base {
@@ -33,7 +34,7 @@ pub trait InternalResult {
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Hash)]
 pub(crate) enum NoBits {
     N32,
-    N64,
+    N64
 }
 
 /// Provides arbitrary-precision floating point decimal.
@@ -42,7 +43,7 @@ pub struct Decimal {
     pub(crate) underlying: i64,
     pub(crate) nobits: NoBits, // its domain is {32, 64}
     pub(crate) precision: u8,
-    pub(crate) scale: u8,
+    pub(crate) scale: u8
 }
 
 impl Default for Decimal {
@@ -51,7 +52,7 @@ impl Default for Decimal {
             underlying: 0,
             precision: 9,
             scale: 4,
-            nobits: NoBits::N32,
+            nobits: NoBits::N32
         }
     }
 }
@@ -174,7 +175,7 @@ impl Decimal {
             underlying,
             precision,
             scale,
-            nobits: NoBits::N64,
+            nobits: NoBits::N64
         }
     }
 
@@ -193,7 +194,7 @@ impl Decimal {
             underlying,
             precision,
             scale,
-            nobits: NoBits::N64,
+            nobits: NoBits::N64
         }
     }
 
@@ -245,7 +246,7 @@ impl Decimal {
             underlying,
             precision: self.precision,
             scale,
-            nobits: self.nobits,
+            nobits: self.nobits
         }
     }
 }

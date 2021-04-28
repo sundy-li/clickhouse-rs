@@ -1,16 +1,21 @@
+use std::net::Ipv4Addr;
+use std::net::Ipv6Addr;
+
 use chrono::prelude::*;
 use chrono_tz::Tz;
-use std::net::{Ipv4Addr, Ipv6Addr};
 
-use crate::types::{Enum16, Enum8};
-use crate::{
-    errors::{Error, FromSqlError, Result},
-    types::{
-        column::{datetime64::to_datetime, Either},
-        value::{decode_ipv4, decode_ipv6},
-        Decimal, SqlType, ValueRef,
-    },
-};
+use crate::errors::Error;
+use crate::errors::FromSqlError;
+use crate::errors::Result;
+use crate::types::column::datetime64::to_datetime;
+use crate::types::column::Either;
+use crate::types::value::decode_ipv4;
+use crate::types::value::decode_ipv6;
+use crate::types::Decimal;
+use crate::types::Enum16;
+use crate::types::Enum8;
+use crate::types::SqlType;
+use crate::types::ValueRef;
 
 pub type FromSqlResult<T> = Result<T>;
 
@@ -44,7 +49,7 @@ impl<'a> FromSql<'a> for Decimal {
                 let from = SqlType::from(value.clone()).to_string();
                 Err(Error::FromSql(FromSqlError::InvalidType {
                     src: from,
-                    dst: "Decimal".into(),
+                    dst: "Decimal".into()
                 }))
             }
         }
@@ -60,7 +65,7 @@ impl<'a> FromSql<'a> for Enum8 {
 
                 Err(Error::FromSql(FromSqlError::InvalidType {
                     src: from,
-                    dst: "Enum8".into(),
+                    dst: "Enum8".into()
                 }))
             }
         }
@@ -76,7 +81,7 @@ impl<'a> FromSql<'a> for Enum16 {
 
                 Err(Error::FromSql(FromSqlError::InvalidType {
                     src: from,
-                    dst: "Enum16".into(),
+                    dst: "Enum16".into()
                 }))
             }
         }
@@ -109,7 +114,7 @@ impl<'a> FromSql<'a> for Ipv4Addr {
                 let from = SqlType::from(value.clone()).to_string();
                 Err(Error::FromSql(FromSqlError::InvalidType {
                     src: from,
-                    dst: "Ipv4".into(),
+                    dst: "Ipv4".into()
                 }))
             }
         }
@@ -124,7 +129,7 @@ impl<'a> FromSql<'a> for Ipv6Addr {
                 let from = SqlType::from(value.clone()).to_string();
                 Err(Error::FromSql(FromSqlError::InvalidType {
                     src: from,
-                    dst: "Ipv6".into(),
+                    dst: "Ipv6".into()
                 }))
             }
         }
@@ -144,7 +149,7 @@ impl<'a> FromSql<'a> for uuid::Uuid {
                 let from = SqlType::from(value.clone()).to_string();
                 Err(Error::FromSql(FromSqlError::InvalidType {
                     src: from,
-                    dst: "Uuid".into(),
+                    dst: "Uuid".into()
                 }))
             }
         }
@@ -199,7 +204,7 @@ impl<'a> FromSql<'a> for Vec<u8> {
                 }
                 Ok(result)
             }
-            _ => value.as_bytes().map(|bs| bs.to_vec()),
+            _ => value.as_bytes().map(|bs| bs.to_vec())
         }
     }
 }
@@ -244,8 +249,7 @@ from_sql_vec_impl! {
 }
 
 impl<'a, T> FromSql<'a> for Option<T>
-where
-    T: FromSql<'a>,
+where T: FromSql<'a>
 {
     fn from_sql(value: ValueRef<'a>) -> FromSqlResult<Self> {
         match value {
@@ -260,7 +264,7 @@ where
                 let from = SqlType::from(value.clone()).to_string();
                 Err(Error::FromSql(FromSqlError::InvalidType {
                     src: from,
-                    dst: stringify!($t).into(),
+                    dst: stringify!($t).into()
                 }))
             }
         }
@@ -278,7 +282,7 @@ impl<'a> FromSql<'a> for Date<Tz> {
                 let from = SqlType::from(value).to_string();
                 Err(Error::FromSql(FromSqlError::InvalidType {
                     src: from,
-                    dst: "Date<Tz>".into(),
+                    dst: "Date<Tz>".into()
                 }))
             }
         }
@@ -300,7 +304,7 @@ impl<'a> FromSql<'a> for DateTime<Tz> {
                 let from = SqlType::from(value).to_string();
                 Err(Error::FromSql(FromSqlError::InvalidType {
                     src: from,
-                    dst: "DateTime<Tz>".into(),
+                    dst: "DateTime<Tz>".into()
                 }))
             }
         }
@@ -324,9 +328,14 @@ from_sql_impl! {
 
 #[cfg(test)]
 mod test {
-    use crate::types::{column::Either, from_sql::FromSql, DateTimeType, SqlType, ValueRef};
     use chrono::prelude::*;
     use chrono_tz::Tz;
+
+    use crate::types::column::Either;
+    use crate::types::from_sql::FromSql;
+    use crate::types::DateTimeType;
+    use crate::types::SqlType;
+    use crate::types::ValueRef;
 
     #[test]
     fn test_u8() {
@@ -343,14 +352,14 @@ mod test {
             Err(e) => assert_eq!(
                 "From SQL error: `SqlType::UInt16 cannot be cast to u32.`".to_string(),
                 format!("{}", e)
-            ),
+            )
         }
     }
 
     #[test]
     fn null_to_datetime() {
         let null_value = ValueRef::Nullable(Either::Left(
-            SqlType::DateTime(DateTimeType::DateTime32).into(),
+            SqlType::DateTime(DateTimeType::DateTime32).into()
         ));
         let date = Option::<DateTime<Tz>>::from_sql(null_value);
         assert_eq!(date.unwrap(), None);
