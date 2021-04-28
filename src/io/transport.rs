@@ -58,7 +58,7 @@ pub struct ClickhouseTransport {
     hello: Option<HelloRequest>,
     client_revision: u64,
 
-    send_progress_time: Arc<Mutex<Instant>>
+    send_progress_time: Arc<Mutex<Instant>>,
 }
 
 impl ClickhouseTransport {
@@ -75,7 +75,7 @@ impl ClickhouseTransport {
             hello: None,
             client_revision: 0,
 
-            send_progress_time: Arc::new(Mutex::new(Instant::now()))
+            send_progress_time: Arc::new(Mutex::new(Instant::now())),
         }
     }
 }
@@ -156,7 +156,7 @@ impl<'p> ClickhouseTransportProj<'p> {
                     dbms_tcp_protocol_version: self.ctx.session.dbms_tcp_protocol_version(),
                     timezone: self.ctx.session.timezone().to_string(),
                     server_display_name: self.ctx.session.server_display_name().to_string(),
-                    dbms_version_patch: self.ctx.session.dbms_version_patch()
+                    dbms_version_patch: self.ctx.session.dbms_version_patch(),
                 };
 
                 hello.client_revision = self
@@ -186,9 +186,12 @@ impl<'p> ClickhouseTransportProj<'p> {
                 let send_progress_time = self.send_progress_time.clone();
 
                 thread::spawn(move || {
-                    block_on(async move {
+                    tokio::runtime::Builder::new_multi_thread()
+                        .enable_io()
+                        .worker_threads(4)
+                        .build().unwrap()
+                        .block_on(async move {
                         let mut encoder = Encoder::new();
-
                         match ctx.session.execute_query(&ctx.state).await {
                             Err(err) => {
                                 ExceptionResponse::write(
@@ -218,7 +221,7 @@ impl<'p> ClickhouseTransportProj<'p> {
                                             ExceptionResponse::write(
                                                 &mut encoder,
                                                 &Error::from(err),
-                                                with_stack_trace
+                                                with_stack_trace,
                                             );
                                             encoder.uvarint(SERVER_END_OF_STREAM);
                                         }
@@ -233,7 +236,7 @@ impl<'p> ClickhouseTransportProj<'p> {
                                 sender.send(Ok(encoder.get_buffer())).ok();
                             }
                         }
-                    });
+                    })
                 });
                 true
             }
