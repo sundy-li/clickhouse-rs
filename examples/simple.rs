@@ -108,7 +108,7 @@ struct SimpleBlockStream {
 }
 
 impl Stream for SimpleBlockStream {
-    type Item = std::io::Result<Block>;
+    type Item = anyhow::Result<Block>;
 
     fn poll_next(
         mut self: std::pin::Pin<&mut Self>,

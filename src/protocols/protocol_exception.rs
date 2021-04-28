@@ -1,13 +1,12 @@
 use crate::binary::Encoder;
 use crate::error_codes::ErrorCodes;
 use crate::errors::Error;
-use crate::errors::Result;
 use crate::protocols::*;
 
 pub struct ExceptionResponse {}
 
 impl ExceptionResponse {
-    pub fn encode(encoder: &mut Encoder, error: &Error, with_stack_trace: bool) -> Result<()> {
+    pub fn write(encoder: &mut Encoder, error: &Error, with_stack_trace: bool) {
         let mut code = ErrorCodes::UNEXPECTED_PACKET_FROM_CLIENT;
         let mut stack_trace = "".to_string();
         let mut message = error.to_string();
@@ -30,6 +29,5 @@ impl ExceptionResponse {
         encoder.string(stack_trace);
         // Nested.
         encoder.write(false);
-        Ok(())
     }
 }

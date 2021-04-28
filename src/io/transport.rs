@@ -178,19 +178,20 @@ impl<'p> ClickhouseTransportProj<'p> {
                 // TODO, if it's not insert query, we should discard the remaining rd
                 self.rd.clear();
 
+                let compress = self.ctx.state.compression > 0;
+                let client_revision = *self.client_revision;
+                let with_stack_trace = self.ctx.session.with_stack_trace();
+
                 match self.ctx.session.execute_query(&mut self.ctx.state) {
                     Err(err) => {
-                        ExceptionResponse::encode(
+                        ExceptionResponse::write(
                             &mut encoder,
                             &err,
-                            self.ctx.session.with_stack_trace()
-                        )?;
+                            with_stack_trace,
+                        );
                         encoder.uvarint(SERVER_END_OF_STREAM);
                     }
                     Ok(response) => {
-                        let compress = self.ctx.state.compression > 0;
-                        let client_revision = *self.client_revision;
-
                         // async process blocks and progress
                         if let Some(mut is) = response.input_stream {
                             let sender = sender.clone();
@@ -200,17 +201,29 @@ impl<'p> ClickhouseTransportProj<'p> {
                                 block_on(async move {
                                     while let Some(block) = is.next().await {
                                         let mut encoder = Encoder::new();
+                                        match block {
+                                            Ok(block) => {
 
-                                        if send_progress_time.lock().unwrap().elapsed()
-                                            >= INTERACTIVE_DALAY
-                                        {
-                                            ctx.session
-                                                .get_progress()
-                                                .write(&mut encoder, client_revision);
-                                            *send_progress_time.lock().unwrap() = Instant::now();
+                                                if send_progress_time.lock().unwrap().elapsed()
+                                                    >= INTERACTIVE_DALAY
+                                                {
+                                                    ctx.session
+                                                        .get_progress()
+                                                        .write(&mut encoder, client_revision);
+                                                    *send_progress_time.lock().unwrap() = Instant::now();
+                                                }
+                                            }
+                                            Err(err) => {
+                                                ExceptionResponse::write(
+                                                    &mut encoder,
+                                                    &Error::from(err),
+                                                    with_stack_trace
+                                                );
+                                                encoder.uvarint(SERVER_END_OF_STREAM);
+                                            }
                                         }
-                                        block.unwrap().send_server_data(&mut encoder, compress);
                                         sender.send(Ok(encoder.get_buffer())).ok();
+
                                     }
                                     let mut encoder = Encoder::new();
                                     ctx.session
@@ -266,7 +279,7 @@ impl<'p> ClickhouseTransportProj<'p> {
 
     fn send_error(&mut self, e: Error) -> Result<()> {
         let mut encoder = Encoder::new();
-        ExceptionResponse::encode(&mut encoder, &e, self.ctx.session.with_stack_trace())?;
+        ExceptionResponse::write(&mut encoder, &e, self.ctx.session.with_stack_trace());
         encoder.uvarint(SERVER_END_OF_STREAM);
         Ok(())
     }
