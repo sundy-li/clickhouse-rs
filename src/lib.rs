@@ -81,7 +81,6 @@ pub struct QueryState {
 #[derive(Default)]
 pub struct QueryResponse {
     pub input_stream: Option<SendableDataBlockStream>,
-    pub progress_stream: Option<SendableDataBlockStream>
 }
 
 impl QueryState {

@@ -59,7 +59,6 @@ impl clickhouse_srv::ClickHouseSession for Session {
                 end: 24,
                 blocks: 10,
             })),
-            progress_stream: None
         })
     }
 
