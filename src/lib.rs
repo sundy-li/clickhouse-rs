@@ -27,7 +27,7 @@ extern crate bitflags;
 
 #[async_trait::async_trait]
 pub trait ClickHouseSession: Send + Sync {
-    async fn execute_query(&self, _: &QueryState, connection: &mut Connection) -> Result<()>;
+    async fn execute_query(&self, ctx: &mut CHContext, connection: &mut Connection) -> Result<()>;
 
     fn with_stack_trace(&self) -> bool {
         false
@@ -94,15 +94,14 @@ impl QueryState {
 #[derive(Clone)]
 pub struct CHContext {
     pub state: QueryState,
-    pub session: Arc<dyn ClickHouseSession>,
 
     pub client_revision: u64,
     pub hello: Option<HelloRequest>,
 }
 
 impl CHContext {
-    fn new(state: QueryState, session: Arc<dyn ClickHouseSession>) -> Self {
-        Self { state, session, client_revision: 0, hello: None }
+    fn new(state: QueryState) -> Self {
+        Self { state, client_revision: 0, hello: None }
     }
 }
 
@@ -129,21 +128,22 @@ impl ClickHouseServer {
     async fn run(&mut self, session: Arc<dyn ClickHouseSession>, stream: TcpStream) -> Result<()> {
         debug!("Handle New session");
         let tz: Tz = session.timezone().parse()?;
-        let mut ctx = CHContext::new(QueryState::default(), session);
-        let mut connection = Connection::new(stream, tz);
+        let mut ctx = CHContext::new(QueryState::default());
+        let mut connection = Connection::new(stream, session, tz);
 
-        // signal.
-        let maybe_packet = tokio::select! {
-           res = connection.read_packet() => res?,
-        };
+        loop {
+            // signal.
+            let maybe_packet = tokio::select! {
+               res = connection.read_packet(&mut ctx) => res,
+            };
 
-        let packet = match maybe_packet {
-            Some(packet) => packet,
-            None => return Ok(()),
-        };
-        println!("new packet {:?}", packet);
-        let mut cmd = Cmd::create(packet);
-        cmd.apply(&mut connection, &mut ctx).await?;
+            let packet = match maybe_packet? {
+                Some(packet) => packet,
+                None => return Ok(()),
+            };
+            let mut cmd = Cmd::create(packet);
+            cmd.apply(&mut connection, &mut ctx).await?;
+        }
         Ok(())
     }
 }

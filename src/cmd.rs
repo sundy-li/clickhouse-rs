@@ -30,16 +30,16 @@ impl Cmd {
             Packet::Cancel => {},
             Packet::Hello(hello) => {
                 let response = HelloResponse {
-                    dbms_name: ctx.session.dbms_name().to_string(),
-                    dbms_version_major: ctx.session.dbms_version_major(),
-                    dbms_version_minor: ctx.session.dbms_version_minor(),
-                    dbms_tcp_protocol_version: ctx.session.dbms_tcp_protocol_version(),
-                    timezone: ctx.session.timezone().to_string(),
-                    server_display_name: ctx.session.server_display_name().to_string(),
-                    dbms_version_patch: ctx.session.dbms_version_patch(),
+                    dbms_name: connection.session.dbms_name().to_string(),
+                    dbms_version_major: connection.session.dbms_version_major(),
+                    dbms_version_minor: connection.session.dbms_version_minor(),
+                    dbms_tcp_protocol_version: connection.session.dbms_tcp_protocol_version(),
+                    timezone: connection.session.timezone().to_string(),
+                    server_display_name: connection.session.server_display_name().to_string(),
+                    dbms_version_patch: connection.session.dbms_version_patch(),
                 };
 
-                hello.client_revision = ctx
+                hello.client_revision = connection
                     .session
                     .dbms_tcp_protocol_version()
                     .min(hello.client_revision);
@@ -56,7 +56,8 @@ impl Cmd {
 
                 // TODO, if it's not insert query, we should discard the remaining rd
                 connection.buffer.clear();
-                if let Err(err) = ctx.session.execute_query(&ctx.state, connection).await {
+                let session = connection.session.clone();
+                if let Err(err) = session.execute_query(ctx, connection).await {
                     connection.write_error(err).await?;
                 }
 

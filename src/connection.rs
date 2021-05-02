@@ -6,8 +6,9 @@ use crate::protocols::{Packet, SERVER_END_OF_STREAM, ExceptionResponse};
 use crate::binary::{Parser, Encoder};
 use chrono_tz::Tz;
 use crate::types::{Marshal, StatBuffer, Block, Progress};
-use crate::binary;
+use crate::{binary, CHContext, ClickHouseSession};
 use crate::errors::{Result, Error};
+use std::sync::Arc;
 
 /// Send and receive `Packet` values from a remote peer.
 ///
@@ -26,7 +27,9 @@ pub struct Connection {
     // level buffering. The `BufWriter` implementation provided by Tokio is
     // sufficient for our needs.
     pub buffer: BytesMut,
+
     stream: BufWriter<TcpStream>,
+    pub session: Arc<dyn ClickHouseSession>,
 
     // The buffer for reading frames.
     tz: Tz,
@@ -36,14 +39,11 @@ pub struct Connection {
 impl Connection {
     /// Create a new `Connection`, backed by `socket`. Read and write buffers
     /// are initialized.
-    pub fn new(stream: TcpStream, tz: Tz) -> Connection {
+    pub fn new(stream: TcpStream, session: Arc<dyn ClickHouseSession>, tz: Tz) -> Connection {
         Connection {
             stream: BufWriter::new(stream),
-            // Default to a 4KB read buffer. For the use case of mini redis,
-            // this is fine. However, real applications will want to tune this
-            // value to their specific use case. There is a high likelihood that
-            // a larger read buffer will work better.
             buffer: BytesMut::with_capacity(4 * 1024),
+            session,
             tz,
             with_stack_trace: false,
         }
@@ -60,11 +60,11 @@ impl Connection {
     /// On success, the received frame is returned. If the `TcpStream`
     /// is closed in a way that doesn't break a frame in half, it returns
     /// `None`. Otherwise, an error is returned.
-    pub async fn read_packet(&mut self) -> crate::Result<Option<Packet>> {
+    pub async fn read_packet(&mut self, ctx: &mut CHContext) -> crate::Result<Option<Packet>> {
         loop {
             // Attempt to parse a frame from the buffered data. If enough data
             // has been buffered, the frame is returned.
-            if let Some(frame) = self.parse_packet()? {
+            if let Some(frame) = self.parse_packet(ctx)? {
                 return Ok(Some(frame));
             }
 
@@ -91,7 +91,7 @@ impl Connection {
     /// data, the frame is returned and the data removed from the buffer. If not
     /// enough data has been buffered yet, `Ok(None)` is returned. If the
     /// buffered data does not represent a valid frame, `Err` is returned.
-    fn parse_packet(&mut self) -> crate::Result<Option<Packet>> {
+    fn parse_packet(&mut self, ctx: &mut CHContext) -> crate::Result<Option<Packet>> {
         // Cursor is used to track the "current" location in the
         // buffer. Cursor also implements `Buf` from the `bytes` crate
         // which provides a number of helpful utilities for working
@@ -99,7 +99,7 @@ impl Connection {
         let mut buf = Cursor::new(&self.buffer[..]);
         let mut parser = Parser::new(&mut buf, self.tz);
 
-        let hello = None;
+        let hello = ctx.hello.clone();
         let packet = parser.parse_packet(&hello, true);
 
         match packet {
@@ -126,15 +126,18 @@ impl Connection {
             // An error was encountered while parsing the frame. The connection
             // is now in an invalid state. Returning `Err` from here will result
             // in the connection being closed.
-            Err(e) => Err(e.into()),
+            Err(e) => {
+                Err(e.into())
+            },
         }
     }
 
 
-    pub async fn write_block(&mut self, block: Block) -> Result<()> {
+    pub async fn write_block(&mut self,  block: Block) -> Result<()> {
         let mut encoder = Encoder::new();
         block.send_server_data(&mut encoder, true);
         self.stream.write_all(&encoder.get_buffer()).await?;
+        self.stream.flush().await?;
         Ok(())
     }
 
@@ -142,6 +145,7 @@ impl Connection {
         let mut encoder = Encoder::new();
         progress.write(&mut encoder, client_revision);
         self.stream.write_all(&encoder.get_buffer()).await?;
+        self.stream.flush().await?;
         Ok(())
     }
 
@@ -149,6 +153,7 @@ impl Connection {
         let mut encoder = Encoder::new();
         encoder.uvarint(SERVER_END_OF_STREAM);
         self.stream.write_all(&encoder.get_buffer()).await?;
+        self.stream.flush().await?;
         Ok(())
     }
 
@@ -161,12 +166,13 @@ impl Connection {
         );
 
         self.stream.write_all(&encoder.get_buffer()).await?;
+        self.stream.flush().await?;
         Ok(())
     }
 
     pub async fn write_bytes(&mut self, bytes: Vec<u8> ) -> Result<()> {
-        println!("Write: {:?}", bytes);
         self.stream.write_all(&bytes).await?;
+        self.stream.flush().await?;
         Ok(())
     }
 }
