@@ -2,19 +2,20 @@ use std::env;
 use std::error::Error;
 use std::sync::Arc;
 use std::thread;
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 use clickhouse_srv::errors::Result;
 use clickhouse_srv::types::Block;
 use clickhouse_srv::types::Progress;
 use clickhouse_srv::ClickHouseServer;
-use clickhouse_srv::QueryResponse;
 use clickhouse_srv::QueryState;
 use futures::task::Context;
 use futures::task::Poll;
-use futures::Stream;
+use futures::{Stream, StreamExt};
 use log::info;
+use log::debug;
 use tokio::net::TcpListener;
+use clickhouse_srv::connection::Connection;
 
 extern crate clickhouse_srv;
 
@@ -46,21 +47,33 @@ struct Session {}
 
 #[async_trait::async_trait]
 impl clickhouse_srv::ClickHouseSession for Session {
-    async fn execute_query(&self, state: &QueryState) -> Result<QueryResponse> {
+    async fn execute_query(&self, state: &QueryState, connection: &mut Connection) -> Result<()> {
         let query = state.query.clone();
         info!("Receive query {}", query);
         if query.starts_with("insert") {
             return Err("INSERT is not supported currently".into());
         }
 
-        Ok(QueryResponse {
-            input_stream:Box::pin(SimpleBlockStream {
-                idx: 0,
-                start: 10,
-                end: 24,
-                blocks: 10,
-            }),
-        })
+        let start = Instant::now();
+        let mut last_progress_send = Instant::now();
+        let mut clickhouse_stream = SimpleBlockStream {
+            idx: 0,
+            start: 10,
+            end: 24,
+            blocks: 10,
+        };
+
+        while let Some(block) = clickhouse_stream.next().await {
+            connection.write_block(block.unwrap()).await?;
+        }
+
+        let duration = start.elapsed();
+        debug!(
+            "ClickHouseHandler executor cost:{:?}, statistics:{:?}",
+            duration,
+            "xxx",
+        );
+        Ok(())
     }
 
     fn dbms_name(&self) -> &str {
@@ -94,7 +107,7 @@ impl clickhouse_srv::ClickHouseSession for Session {
 
     fn get_progress(&self) -> Progress {
         Progress {
-            rows: 100 ,
+            rows: 100,
             bytes: 1000,
             total_rows: 1000,
         }
@@ -109,11 +122,11 @@ struct SimpleBlockStream {
 }
 
 impl Stream for SimpleBlockStream {
-    type Item = anyhow::Result<Block>;
+    type Item = Result<Block>;
 
     fn poll_next(
         mut self: std::pin::Pin<&mut Self>,
-        _: &mut Context<'_>
+        _: &mut Context<'_>,
     ) -> Poll<Option<Self::Item>> {
         self.idx += 1;
         if self.idx > self.blocks {

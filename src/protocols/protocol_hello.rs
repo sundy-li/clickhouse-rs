@@ -1,6 +1,6 @@
 use std::io::Read;
 
-use crate::binary::Encoder;
+use crate::binary::{Encoder};
 use crate::binary::ReadEx;
 use crate::error_codes::ErrorCodes;
 use crate::errors::Error;
@@ -8,7 +8,7 @@ use crate::errors::Result;
 use crate::errors::ServerError;
 use crate::protocols::*;
 
-#[derive(Default, Debug)]
+#[derive(Default, Debug, Clone)]
 pub struct HelloRequest {
     pub client_name: String,
     pub client_version_major: u64,

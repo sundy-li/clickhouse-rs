@@ -34,7 +34,7 @@ pub(crate) use self::stat_buffer::StatBuffer;
 pub(crate) use self::unmarshal::Unmarshal;
 pub use self::value::Value;
 pub use self::value_ref::ValueRef;
-use crate::binary::Encoder;
+use crate::binary::{Encoder};
 use crate::protocols::DBMS_MIN_REVISION_WITH_CLIENT_WRITE_INFO;
 use crate::protocols::SERVER_PROGRESS;
 
