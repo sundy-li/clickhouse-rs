@@ -5,22 +5,22 @@ use errors::Result;
 use log::debug;
 use log::error;
 use tokio::net::TcpStream;
+use tokio::sync::broadcast;
 use tokio_stream::StreamExt;
 
+use crate::cmd::Cmd;
+use crate::connection::Connection;
+use crate::protocols::HelloRequest;
 use crate::types::Block;
 use crate::types::Progress;
-use crate::connection::Connection;
-use tokio::sync::broadcast;
-use crate::cmd::Cmd;
-use crate::protocols::HelloRequest;
 
 mod binary;
+pub mod cmd;
+pub mod connection;
 pub mod error_codes;
 pub mod errors;
 pub mod protocols;
 pub mod types;
-pub mod connection;
-pub mod cmd;
 
 #[macro_use]
 extern crate bitflags;
@@ -78,7 +78,7 @@ pub struct QueryState {
     /// empty or not
     pub is_empty: bool,
     /// Data was sent.
-    pub sent_all_data: bool,
+    pub sent_all_data: bool
 }
 
 impl QueryState {
@@ -96,12 +96,16 @@ pub struct CHContext {
     pub state: QueryState,
 
     pub client_revision: u64,
-    pub hello: Option<HelloRequest>,
+    pub hello: Option<HelloRequest>
 }
 
 impl CHContext {
     fn new(state: QueryState) -> Self {
-        Self { state, client_revision: 0, hello: None }
+        Self {
+            state,
+            client_revision: 0,
+            hello: None
+        }
     }
 }
 
@@ -112,7 +116,7 @@ pub struct ClickHouseServer {}
 impl ClickHouseServer {
     pub async fn run_on_stream(
         session: Arc<dyn ClickHouseSession>,
-        stream: TcpStream,
+        stream: TcpStream
     ) -> Result<()> {
         ClickHouseServer::run_on(session, stream.into()).await
     }
@@ -139,7 +143,7 @@ impl ClickHouseServer {
 
             let packet = match maybe_packet? {
                 Some(packet) => packet,
-                None => return Ok(()),
+                None => return Ok(())
             };
             let mut cmd = Cmd::create(packet);
             cmd.apply(&mut connection, &mut ctx).await?;

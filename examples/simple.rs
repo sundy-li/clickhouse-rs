@@ -2,20 +2,23 @@ use std::env;
 use std::error::Error;
 use std::sync::Arc;
 use std::thread;
-use std::time::{Duration, Instant};
+use std::time::Duration;
+use std::time::Instant;
 
+use clickhouse_srv::connection::Connection;
 use clickhouse_srv::errors::Result;
 use clickhouse_srv::types::Block;
 use clickhouse_srv::types::Progress;
-use clickhouse_srv::{ClickHouseServer, CHContext};
+use clickhouse_srv::CHContext;
+use clickhouse_srv::ClickHouseServer;
 use clickhouse_srv::QueryState;
 use futures::task::Context;
 use futures::task::Poll;
-use futures::{Stream, StreamExt};
-use log::info;
+use futures::Stream;
+use futures::StreamExt;
 use log::debug;
+use log::info;
 use tokio::net::TcpListener;
-use clickhouse_srv::connection::Connection;
 
 extern crate clickhouse_srv;
 
@@ -36,9 +39,14 @@ async fn main() -> std::result::Result<(), Box<dyn Error>> {
 
         // Spawn our handler to be run asynchronously.
         tokio::spawn(async move {
-            if let Err(e) = ClickHouseServer::run_on_stream(Arc::new(Session {
-                last_progress_send: Instant::now(),
-            }), stream).await {
+            if let Err(e) = ClickHouseServer::run_on_stream(
+                Arc::new(Session {
+                    last_progress_send: Instant::now()
+                }),
+                stream
+            )
+            .await
+            {
                 println!("Error: {:?}", e);
             }
         });
@@ -46,7 +54,7 @@ async fn main() -> std::result::Result<(), Box<dyn Error>> {
 }
 
 struct Session {
-    last_progress_send: Instant,
+    last_progress_send: Instant
 }
 
 #[async_trait::async_trait]
@@ -63,24 +71,24 @@ impl clickhouse_srv::ClickHouseSession for Session {
             idx: 0,
             start: 10,
             end: 24,
-            blocks: 10,
+            blocks: 10
         };
 
         while let Some(block) = clickhouse_stream.next().await {
             connection.write_block(block.unwrap()).await?;
 
-
             if self.last_progress_send.elapsed() >= Duration::from_millis(10) {
                 let progress = self.get_progress();
-                connection.write_progress(progress, ctx.client_revision).await?;
+                connection
+                    .write_progress(progress, ctx.client_revision)
+                    .await?;
             }
         }
 
         let duration = start.elapsed();
         debug!(
             "ClickHouseHandler executor cost:{:?}, statistics:{:?}",
-            duration,
-            "xxx",
+            duration, "xxx",
         );
         Ok(())
     }
@@ -118,7 +126,7 @@ impl clickhouse_srv::ClickHouseSession for Session {
         Progress {
             rows: 100,
             bytes: 1000,
-            total_rows: 1000,
+            total_rows: 1000
         }
     }
 }
@@ -127,7 +135,7 @@ struct SimpleBlockStream {
     idx: u32,
     start: u32,
     end: u32,
-    blocks: u32,
+    blocks: u32
 }
 
 impl Stream for SimpleBlockStream {
@@ -135,7 +143,7 @@ impl Stream for SimpleBlockStream {
 
     fn poll_next(
         mut self: std::pin::Pin<&mut Self>,
-        _: &mut Context<'_>,
+        _: &mut Context<'_>
     ) -> Poll<Option<Self::Item>> {
         self.idx += 1;
         if self.idx > self.blocks {

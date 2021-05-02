@@ -1,20 +1,20 @@
-use crate::protocols::{Packet, SERVER_PONG, HelloResponse};
-use crate::errors::Result;
+use log::debug;
+
+use crate::binary::Encoder;
 use crate::connection::Connection;
+use crate::errors::Result;
+use crate::protocols::HelloResponse;
+use crate::protocols::Packet;
+use crate::protocols::SERVER_PONG;
 use crate::CHContext;
 
-use log::debug;
-use crate::binary::Encoder;
-
 pub struct Cmd {
-    packet: Packet,
+    packet: Packet
 }
 
 impl Cmd {
     pub fn create(packet: Packet) -> Self {
-        Self {
-            packet,
-        }
+        Self { packet }
     }
 
     pub async fn apply(&mut self, connection: &mut Connection, ctx: &mut CHContext) -> Result<()> {
@@ -27,7 +27,7 @@ impl Cmd {
                 encoder.uvarint(SERVER_PONG);
             }
             // todo cancel
-            Packet::Cancel => {},
+            Packet::Cancel => {}
             Packet::Hello(hello) => {
                 let response = HelloResponse {
                     dbms_name: connection.session.dbms_name().to_string(),
@@ -36,7 +36,7 @@ impl Cmd {
                     dbms_tcp_protocol_version: connection.session.dbms_tcp_protocol_version(),
                     timezone: connection.session.timezone().to_string(),
                     server_display_name: connection.session.server_display_name().to_string(),
-                    dbms_version_patch: connection.session.dbms_version_patch(),
+                    dbms_version_patch: connection.session.dbms_version_patch()
                 };
 
                 hello.client_revision = connection

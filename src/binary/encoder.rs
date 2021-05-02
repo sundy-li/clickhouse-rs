@@ -38,7 +38,7 @@ impl Encoder {
     }
 
     pub fn write<T>(&mut self, value: T)
-        where T: Copy + Marshal + StatBuffer {
+    where T: Copy + Marshal + StatBuffer {
         let mut buffer = T::buffer();
         value.marshal(buffer.as_mut());
         self.write_bytes(buffer.as_ref());

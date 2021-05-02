@@ -1,6 +1,6 @@
 use std::io::Read;
 
-use crate::binary::{Encoder};
+use crate::binary::Encoder;
 use crate::binary::ReadEx;
 use crate::error_codes::ErrorCodes;
 use crate::errors::Error;

@@ -1,14 +1,29 @@
-use bytes::{Buf, BytesMut};
-use std::io::{self, Cursor};
-use tokio::io::{AsyncReadExt, AsyncWriteExt, BufWriter};
-use tokio::net::TcpStream;
-use crate::protocols::{Packet, SERVER_END_OF_STREAM, ExceptionResponse};
-use crate::binary::{Parser, Encoder};
-use chrono_tz::Tz;
-use crate::types::{Marshal, StatBuffer, Block, Progress};
-use crate::{binary, CHContext, ClickHouseSession};
-use crate::errors::{Result, Error};
+use std::io::Cursor;
+use std::io::{self};
 use std::sync::Arc;
+
+use bytes::Buf;
+use bytes::BytesMut;
+use chrono_tz::Tz;
+use tokio::io::AsyncReadExt;
+use tokio::io::AsyncWriteExt;
+use tokio::io::BufWriter;
+use tokio::net::TcpStream;
+
+use crate::binary;
+use crate::binary::Encoder;
+use crate::binary::Parser;
+use crate::errors::Error;
+use crate::errors::Result;
+use crate::protocols::ExceptionResponse;
+use crate::protocols::Packet;
+use crate::protocols::SERVER_END_OF_STREAM;
+use crate::types::Block;
+use crate::types::Marshal;
+use crate::types::Progress;
+use crate::types::StatBuffer;
+use crate::CHContext;
+use crate::ClickHouseSession;
 
 /// Send and receive `Packet` values from a remote peer.
 ///
@@ -33,7 +48,7 @@ pub struct Connection {
 
     // The buffer for reading frames.
     tz: Tz,
-    with_stack_trace: bool,
+    with_stack_trace: bool
 }
 
 impl Connection {
@@ -45,7 +60,7 @@ impl Connection {
             buffer: BytesMut::with_capacity(4 * 1024),
             session,
             tz,
-            with_stack_trace: false,
+            with_stack_trace: false
         }
     }
 
@@ -126,14 +141,11 @@ impl Connection {
             // An error was encountered while parsing the frame. The connection
             // is now in an invalid state. Returning `Err` from here will result
             // in the connection being closed.
-            Err(e) => {
-                Err(e.into())
-            },
+            Err(e) => Err(e.into())
         }
     }
 
-
-    pub async fn write_block(&mut self,  block: Block) -> Result<()> {
+    pub async fn write_block(&mut self, block: Block) -> Result<()> {
         let mut encoder = Encoder::new();
         block.send_server_data(&mut encoder, true);
         self.stream.write_all(&encoder.get_buffer()).await?;
@@ -159,18 +171,14 @@ impl Connection {
 
     pub async fn write_error(&mut self, err: Error) -> Result<()> {
         let mut encoder = Encoder::new();
-        ExceptionResponse::write(
-            &mut encoder,
-            &err,
-            self.with_stack_trace,
-        );
+        ExceptionResponse::write(&mut encoder, &err, self.with_stack_trace);
 
         self.stream.write_all(&encoder.get_buffer()).await?;
         self.stream.flush().await?;
         Ok(())
     }
 
-    pub async fn write_bytes(&mut self, bytes: Vec<u8> ) -> Result<()> {
+    pub async fn write_bytes(&mut self, bytes: Vec<u8>) -> Result<()> {
         self.stream.write_all(&bytes).await?;
         self.stream.flush().await?;
         Ok(())
