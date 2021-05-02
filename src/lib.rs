@@ -2,21 +2,23 @@ use std::sync::Arc;
 
 use chrono_tz::Tz;
 use errors::Result;
-use io::ClickhouseTransport;
 use log::debug;
 use log::error;
 use tokio::net::TcpStream;
+use tokio::sync::broadcast;
 use tokio_stream::StreamExt;
 
-use crate::io::block_stream::SendableDataBlockStream;
-use crate::io::Stream;
+use crate::cmd::Cmd;
+use crate::connection::Connection;
+use crate::protocols::HelloRequest;
 use crate::types::Block;
 use crate::types::Progress;
 
 mod binary;
+pub mod cmd;
+pub mod connection;
 pub mod error_codes;
 pub mod errors;
-pub mod io;
 pub mod protocols;
 pub mod types;
 
@@ -25,7 +27,7 @@ extern crate bitflags;
 
 #[async_trait::async_trait]
 pub trait ClickHouseSession: Send + Sync {
-    async fn execute_query(&self, _: &QueryState) -> Result<QueryResponse>;
+    async fn execute_query(&self, ctx: &mut CHContext, connection: &mut Connection) -> Result<()>;
 
     fn with_stack_trace(&self) -> bool {
         false
@@ -79,10 +81,6 @@ pub struct QueryState {
     pub sent_all_data: bool
 }
 
-pub struct QueryResponse {
-    pub input_stream: SendableDataBlockStream,
-}
-
 impl QueryState {
     fn reset(&mut self) {
         self.stage = 0;
@@ -96,12 +94,18 @@ impl QueryState {
 #[derive(Clone)]
 pub struct CHContext {
     pub state: QueryState,
-    pub session: Arc<dyn ClickHouseSession>
+
+    pub client_revision: u64,
+    pub hello: Option<HelloRequest>
 }
 
 impl CHContext {
-    fn new(state: QueryState, session: Arc<dyn ClickHouseSession>) -> Self {
-        Self { state, session }
+    fn new(state: QueryState) -> Self {
+        Self {
+            state,
+            client_revision: 0,
+            hello: None
+        }
     }
 }
 
@@ -119,28 +123,31 @@ impl ClickHouseServer {
 }
 
 impl ClickHouseServer {
-    async fn run_on(session: Arc<dyn ClickHouseSession>, stream: Stream) -> Result<()> {
+    async fn run_on(session: Arc<dyn ClickHouseSession>, stream: TcpStream) -> Result<()> {
         let mut srv = ClickHouseServer {};
         srv.run(session, stream).await?;
         Ok(())
     }
 
-    async fn run(&mut self, session: Arc<dyn ClickHouseSession>, stream: Stream) -> Result<()> {
+    async fn run(&mut self, session: Arc<dyn ClickHouseSession>, stream: TcpStream) -> Result<()> {
         debug!("Handle New session");
         let tz: Tz = session.timezone().parse()?;
-        let ctx = CHContext::new(QueryState::default(), session);
-        let mut transport = ClickhouseTransport::new(ctx, stream, tz);
+        let mut ctx = CHContext::new(QueryState::default());
+        let mut connection = Connection::new(stream, session, tz);
 
-        while let Some(ret) = transport.next().await {
-            match ret {
-                Err(e) => {
-                    error!("Error in {:?}", e);
-                    break;
-                }
-                _ => {}
-            }
+        loop {
+            // signal.
+            let maybe_packet = tokio::select! {
+               res = connection.read_packet(&mut ctx) => res,
+            };
+
+            let packet = match maybe_packet? {
+                Some(packet) => packet,
+                None => return Ok(())
+            };
+            let mut cmd = Cmd::create(packet);
+            cmd.apply(&mut connection, &mut ctx).await?;
         }
-        debug!("Exited one session");
         Ok(())
     }
 }

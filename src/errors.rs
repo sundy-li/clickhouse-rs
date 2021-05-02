@@ -186,12 +186,6 @@ impl From<&str> for Error {
     }
 }
 
-impl From<anyhow::Error> for Error {
-    fn from(err: anyhow::Error) -> Self {
-        Error::Other(err.to_string().into())
-    }
-}
-
 impl From<FromUtf8Error> for Error {
     fn from(err: FromUtf8Error) -> Self {
         Error::Other(err.to_string().into())
