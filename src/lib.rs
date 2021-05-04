@@ -3,10 +3,7 @@ use std::sync::Arc;
 use chrono_tz::Tz;
 use errors::Result;
 use log::debug;
-use log::error;
 use tokio::net::TcpStream;
-use tokio::sync::broadcast;
-use tokio_stream::StreamExt;
 
 use crate::cmd::Cmd;
 use crate::connection::Connection;

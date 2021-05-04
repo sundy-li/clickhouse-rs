@@ -1,5 +1,4 @@
 use std::io::Cursor;
-use std::io::{self};
 use std::sync::Arc;
 
 use bytes::Buf;
@@ -10,7 +9,6 @@ use tokio::io::AsyncWriteExt;
 use tokio::io::BufWriter;
 use tokio::net::TcpStream;
 
-use crate::binary;
 use crate::binary::Encoder;
 use crate::binary::Parser;
 use crate::errors::Error;
@@ -19,7 +17,6 @@ use crate::protocols::ExceptionResponse;
 use crate::protocols::Packet;
 use crate::protocols::SERVER_END_OF_STREAM;
 use crate::types::Block;
-use crate::types::Marshal;
 use crate::types::Progress;
 use crate::types::StatBuffer;
 use crate::CHContext;

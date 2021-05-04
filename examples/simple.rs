@@ -11,7 +11,6 @@ use clickhouse_srv::types::Block;
 use clickhouse_srv::types::Progress;
 use clickhouse_srv::CHContext;
 use clickhouse_srv::ClickHouseServer;
-use clickhouse_srv::QueryState;
 use futures::task::Context;
 use futures::task::Poll;
 use futures::Stream;
