@@ -62,9 +62,6 @@ impl clickhouse_srv::ClickHouseSession for Session {
     async fn execute_query(&self, ctx: &mut CHContext, connection: &mut Connection) -> Result<()> {
         let query = ctx.state.query.clone();
         info!("Receive query {}", query);
-        if query.starts_with("insert") {
-            return Err("INSERT is not supported currently".into());
-        }
 
         let start = Instant::now();
         let mut clickhouse_stream = SimpleBlockStream {

@@ -141,9 +141,13 @@ impl ClickHouseServer {
                res = connection.read_packet(&mut ctx) => res,
             };
 
-            let packet = match maybe_packet? {
-                Some(packet) => packet,
-                None => return Ok(())
+            let packet = match maybe_packet {
+                Ok(Some(packet)) => packet,
+                Err(e) => {
+                    connection.write_error(&e).await?;
+                    return Err(e);
+                }
+                Ok(None) => return Ok(())
             };
             let mut cmd = Cmd::create(packet);
             cmd.apply(&mut connection, &mut ctx).await?;

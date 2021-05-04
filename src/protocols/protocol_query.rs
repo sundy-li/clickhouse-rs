@@ -2,6 +2,8 @@ use std::io::Read;
 
 use super::*;
 use crate::binary::ReadEx;
+use crate::errors::DriverError::UnknownSetting;
+use crate::errors::Error;
 use crate::errors::Result;
 
 const TCP: u8 = 1;
@@ -122,20 +124,20 @@ impl QueryRequest {
 
         client_info.interface = TCP;
 
-        // TODO after setUser
-        // if client_info.query_kind == INITIAL_QUERY {
-        //     /// 'Current' fields was set at receiveHello.
-        //     client_info.initial_user = hello_request.current_user;
-        //     client_info.initial_query_id = client_info.current_query_id;
-        //     client_info.initial_address = client_info.current_address;
-        // }
-        //
-
-        // TODO: all settings
         loop {
-            let str = reader.read_string()?;
-            if str.is_empty() {
+            let name = reader.read_string()?;
+
+            if name.is_empty() {
                 break;
+            }
+
+            match name.as_str() {
+                "max_block_size" | "max_threads" => {
+                    let _ = reader.read_uvarint()?;
+                }
+                _ => {
+                    return Err(Error::Driver(UnknownSetting { name }));
+                }
             }
         }
 

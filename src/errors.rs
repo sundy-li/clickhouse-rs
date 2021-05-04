@@ -64,7 +64,7 @@ pub enum ConnectionError {
 }
 
 /// This type enumerates connection URL errors.
-#[derive(Debug, Error)]
+#[derive(Debug, Error, Clone)]
 pub enum UrlError {
     #[error("Invalid or incomplete connection URL")]
     Invalid,
@@ -83,7 +83,7 @@ pub enum UrlError {
 }
 
 /// This type enumerates driver errors.
-#[derive(Debug, Error)]
+#[derive(Debug, Error, Clone)]
 pub enum DriverError {
     #[error("Varint overflows a 64-bit integer.")]
     Overflow,
@@ -98,11 +98,14 @@ pub enum DriverError {
     Timeout,
 
     #[error("Invalid utf-8 sequence.")]
-    Utf8Error(Utf8Error)
+    Utf8Error(Utf8Error),
+
+    #[error("UnknownSetting name {}", name)]
+    UnknownSetting { name: String }
 }
 
 /// This type enumerates cast from sql type errors.
-#[derive(Debug, Error)]
+#[derive(Debug, Error, Clone)]
 pub enum FromSqlError {
     #[error("SqlType::{} cannot be cast to {}.", src, dst)]
     InvalidType {

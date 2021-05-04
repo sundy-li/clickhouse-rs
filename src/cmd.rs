@@ -54,13 +54,12 @@ impl Cmd {
                 ctx.state.stage = query.stage;
                 ctx.state.compression = query.compression;
 
-                // TODO, if it's not insert query, we should discard the remaining rd
-                connection.buffer.clear();
                 let session = connection.session.clone();
-                if let Err(err) = session.execute_query(ctx, connection).await {
-                    connection.write_error(err).await?;
-                }
+                // connection.buffer.clear();
 
+                if let Err(err) = session.execute_query(ctx, connection).await {
+                    connection.write_error(&err).await?;
+                }
                 connection.write_end_of_stream().await?;
             }
             Packet::Data(_) => {

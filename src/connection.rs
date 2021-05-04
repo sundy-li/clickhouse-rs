@@ -126,7 +126,6 @@ impl Connection {
                 let len = buf.position() as usize;
                 buf.set_position(0);
                 self.buffer.advance(len);
-
                 // Return the parsed frame to the caller.
                 Ok(Some(packet))
             }
@@ -164,12 +163,11 @@ impl Connection {
     pub async fn write_end_of_stream(&mut self) -> Result<()> {
         let mut encoder = Encoder::new();
         encoder.uvarint(SERVER_END_OF_STREAM);
-        self.stream.write_all(&encoder.get_buffer()).await?;
-        self.stream.flush().await?;
+        self.write_bytes(encoder.get_buffer()).await?;
         Ok(())
     }
 
-    pub async fn write_error(&mut self, err: Error) -> Result<()> {
+    pub async fn write_error(&mut self, err: &Error) -> Result<()> {
         let mut encoder = Encoder::new();
         ExceptionResponse::write(&mut encoder, &err, self.with_stack_trace);
 
