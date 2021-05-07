@@ -19,9 +19,6 @@ pub mod errors;
 pub mod protocols;
 pub mod types;
 
-#[macro_use]
-extern crate bitflags;
-
 #[async_trait::async_trait]
 pub trait ClickHouseSession: Send + Sync {
     async fn execute_query(&self, ctx: &mut CHContext, connection: &mut Connection) -> Result<()>;
