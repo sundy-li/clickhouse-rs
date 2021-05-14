@@ -2,7 +2,7 @@ use std::io::Read;
 
 use crate::binary::Encoder;
 use crate::binary::ReadEx;
-use crate::error_codes::ErrorCodes;
+use crate::error_codes;
 use crate::errors::Error;
 use crate::errors::Result;
 use crate::errors::ServerError;
@@ -40,7 +40,7 @@ impl HelloRequest {
         if request.user.is_empty() {
             return Err(Error::Server(ServerError {
                 name: "UNEXPECTED_PACKET_FROM_CLIENT".to_string(),
-                code: ErrorCodes::UNEXPECTED_PACKET_FROM_CLIENT,
+                code: error_codes::UNEXPECTED_PACKET_FROM_CLIENT,
                 message: "Unexpected packet from client (no user in Hello package)".to_string(),
                 stack_trace: "".to_string()
             }));

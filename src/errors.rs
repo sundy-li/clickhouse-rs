@@ -9,8 +9,6 @@ use thiserror::Error;
 use tokio::time::error::Elapsed;
 use url::ParseError;
 
-use crate::error_codes::ErrorCodes;
-
 /// Result type alias for this library.
 pub type Result<T> = result::Result<T, Error>;
 
@@ -43,7 +41,7 @@ pub enum Error {
 #[derive(Debug, Error, Clone)]
 #[error("ERROR {} ({:?}): {}", name, code, message)]
 pub struct ServerError {
-    pub code: ErrorCodes,
+    pub code: u32,
     pub name: String,
     pub message: String,
     pub stack_trace: String

@@ -1,5 +1,5 @@
 use crate::binary::Encoder;
-use crate::error_codes::ErrorCodes;
+use crate::error_codes;
 use crate::errors::Error;
 use crate::protocols::*;
 
@@ -21,7 +21,7 @@ impl ExceptionResponse {
         }
         encoder.uvarint(SERVER_EXCEPTION);
 
-        encoder.write(code.bits());
+        encoder.write(code);
         //Name
         encoder.string(name);
         // Message
