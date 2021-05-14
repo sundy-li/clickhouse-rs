@@ -2,12 +2,13 @@ use crate::binary::Encoder;
 use crate::error_codes;
 use crate::errors::Error;
 use crate::protocols::*;
+use crate::error_codes::UNKNOWN_EXCEPTION;
 
 pub struct ExceptionResponse {}
 
 impl ExceptionResponse {
     pub fn write(encoder: &mut Encoder, error: &Error, with_stack_trace: bool) {
-        let mut code = ErrorCodes::UNEXPECTED_PACKET_FROM_CLIENT;
+        let mut code = UNKNOWN_EXCEPTION;
         let name = error.exception_name();
         let mut stack_trace = "".to_string();
         let mut message = error.to_string();
