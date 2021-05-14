@@ -8,6 +8,7 @@ pub struct ExceptionResponse {}
 impl ExceptionResponse {
     pub fn write(encoder: &mut Encoder, error: &Error, with_stack_trace: bool) {
         let mut code = ErrorCodes::UNEXPECTED_PACKET_FROM_CLIENT;
+        let name = error.exception_name();
         let mut stack_trace = "".to_string();
         let mut message = error.to_string();
 
@@ -22,7 +23,7 @@ impl ExceptionResponse {
 
         encoder.write(code.bits());
         //Name
-        encoder.string("");
+        encoder.string(name);
         // Message
         encoder.string(message);
         // StackTrace
