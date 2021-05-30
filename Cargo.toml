@@ -32,7 +32,6 @@ async-trait = "0.1.48"
 
 
 [dependencies.clickhouse-rs-cityhash-sys]
-path = "clickhouse-rs-cityhash-sys"
 version = "0.1.2"
 
 [dependencies.chrono]
