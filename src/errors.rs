@@ -212,6 +212,20 @@ impl From<Utf8Error> for Error {
     }
 }
 
+impl Error {
+    pub fn exception_name(&self) -> &str {
+        match self {
+            Error::Driver(_) => "DriverException",
+            Error::IO(_) => "IOException",
+            Error::Connection(_) => "ConnectionException",
+            Error::Other(_) => "OtherException",
+            Error::Server(e) => e.name.as_str(),
+            Error::Url(_) => "URLException",
+            Error::FromSql(_) => "SQLException",
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     #[test]
