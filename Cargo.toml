@@ -3,6 +3,11 @@ name = "clickhouse-srv"
 version = "0.2.0"
 authors = ["sundyli <543950155@qq.com>"]
 edition = "2018"
+license = "MIT/Apache-2.0"
+repository = "https://github.com/sundy-li/clickhouse-srv"
+homepage = "https://github.com/sundy-li/clickhouse-srv"
+description = "Bindings for emulating a ClickHouse server."
+readme = "README.md"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
