@@ -17,7 +17,14 @@ impl<'a, K: ColumnType> Iterator for ChunkIterator<'a, K> {
 
         if m == 0 && self.position == 0 {
             self.position += 1;
-            return Some(Block::default());
+            let mut result = Block::default();
+
+            for column in self.block.columns().iter() {
+                let data = column.slice(0..0);
+                result = result.column(column.name(), data);
+            }
+
+            return Some(result);
         }
 
         if self.position >= m {
