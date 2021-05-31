@@ -20,7 +20,7 @@ impl<'a, K: ColumnType> Iterator for ChunkIterator<'a, K> {
             let mut result = Block::default();
 
             for column in self.block.columns().iter() {
-                let data = column.slice(0..1);
+                let data = column.slice(0..0);
                 result = result.column(column.name(), data);
             }
 
