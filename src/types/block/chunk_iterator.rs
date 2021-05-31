@@ -17,7 +17,13 @@ impl<'a, K: ColumnType> Iterator for ChunkIterator<'a, K> {
 
         if m == 0 && self.position == 0 {
             self.position += 1;
-            return Some(Block::default());
+            let result = Block {
+                info: self.block.info.clone(),
+                columns: vec![],
+                capacity: 0
+            };
+
+            return Some(result);
         }
 
         if self.position >= m {
