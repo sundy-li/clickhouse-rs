@@ -1,8 +1,7 @@
 use crate::binary::Encoder;
-use crate::error_codes;
+use crate::error_codes::UNKNOWN_EXCEPTION;
 use crate::errors::Error;
 use crate::protocols::*;
-use crate::error_codes::UNKNOWN_EXCEPTION;
 
 pub struct ExceptionResponse {}
 

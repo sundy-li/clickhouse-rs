@@ -16,7 +16,7 @@ use crate::types::Block;
 pub(crate) struct Parser<T> {
     reader: T,
 
-    tz: Tz
+    tz: Tz,
 }
 
 /// The parser can be used to parse clickhouse client requests
@@ -32,7 +32,7 @@ impl<'a, T: Read> Parser<T> {
     pub(crate) fn parse_packet(
         &mut self,
         hello: &Option<HelloRequest>,
-        compress: bool
+        compress: bool,
     ) -> Result<Packet> {
         let packet = self.reader.read_uvarint()?;
         match packet {
@@ -44,7 +44,7 @@ impl<'a, T: Read> Parser<T> {
             protocols::CLIENT_QUERY => Ok(self.parse_query(hello)?),
             protocols::CLIENT_HELLO => Ok(self.parse_hello()?),
 
-            _ => Err(Error::Driver(DriverError::UnknownPacket { packet }))
+            _ => Err(Error::Driver(DriverError::UnknownPacket { packet })),
         }
     }
 
@@ -58,7 +58,7 @@ impl<'a, T: Read> Parser<T> {
                 let query = QueryRequest::read_from(&mut self.reader, hello)?;
                 Ok(Packet::Query(query))
             }
-            _ => Err(Error::Driver(DriverError::UnexpectedPacket))
+            _ => Err(Error::Driver(DriverError::UnexpectedPacket)),
         }
     }
 

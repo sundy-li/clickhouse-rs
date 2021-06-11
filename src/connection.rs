@@ -18,7 +18,6 @@ use crate::protocols::Packet;
 use crate::protocols::SERVER_END_OF_STREAM;
 use crate::types::Block;
 use crate::types::Progress;
-use crate::types::StatBuffer;
 use crate::CHContext;
 use crate::ClickHouseSession;
 
@@ -45,7 +44,8 @@ pub struct Connection {
 
     // The buffer for reading frames.
     tz: Tz,
-    with_stack_trace: bool
+    with_stack_trace: bool,
+    compress: bool,
 }
 
 impl Connection {
@@ -57,7 +57,8 @@ impl Connection {
             buffer: BytesMut::with_capacity(4 * 1024),
             session,
             tz,
-            with_stack_trace: false
+            with_stack_trace: false,
+            compress: true,
         }
     }
 
@@ -112,10 +113,14 @@ impl Connection {
         let mut parser = Parser::new(&mut buf, self.tz);
 
         let hello = ctx.hello.clone();
-        let packet = parser.parse_packet(&hello, true);
+        let packet = parser.parse_packet(&hello, self.compress);
 
         match packet {
             Ok(packet) => {
+                match &packet {
+                    Packet::Query(ref query) => self.compress = query.compression > 0,
+                    _ => {}
+                }
                 // The `check` function will have advanced the cursor until the
                 // end of the frame. Since the cursor had position set to zero
                 // before `Packet::check` was called, we obtain the length of the
@@ -137,13 +142,13 @@ impl Connection {
             // An error was encountered while parsing the frame. The connection
             // is now in an invalid state. Returning `Err` from here will result
             // in the connection being closed.
-            Err(e) => Err(e.into())
+            Err(e) => Err(e.into()),
         }
     }
 
     pub async fn write_block(&mut self, block: Block) -> Result<()> {
         let mut encoder = Encoder::new();
-        block.send_server_data(&mut encoder, true);
+        block.send_server_data(&mut encoder, self.compress);
         self.stream.write_all(&encoder.get_buffer()).await?;
         self.stream.flush().await?;
         Ok(())

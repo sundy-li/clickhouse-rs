@@ -72,7 +72,7 @@ pub struct QueryState {
     /// empty or not
     pub is_empty: bool,
     /// Data was sent.
-    pub sent_all_data: bool
+    pub sent_all_data: bool,
 }
 
 impl QueryState {
@@ -90,7 +90,7 @@ pub struct CHContext {
     pub state: QueryState,
 
     pub client_revision: u64,
-    pub hello: Option<HelloRequest>
+    pub hello: Option<HelloRequest>,
 }
 
 impl CHContext {
@@ -98,7 +98,7 @@ impl CHContext {
         Self {
             state,
             client_revision: 0,
-            hello: None
+            hello: None,
         }
     }
 }
@@ -110,7 +110,7 @@ pub struct ClickHouseServer {}
 impl ClickHouseServer {
     pub async fn run_on_stream(
         session: Arc<dyn ClickHouseSession>,
-        stream: TcpStream
+        stream: TcpStream,
     ) -> Result<()> {
         ClickHouseServer::run_on(session, stream.into()).await
     }
@@ -141,12 +141,11 @@ impl ClickHouseServer {
                     connection.write_error(&e).await?;
                     return Err(e);
                 }
-                Ok(None) => return Ok(())
+                Ok(None) => return Ok(()),
             };
             let mut cmd = Cmd::create(packet);
             cmd.apply(&mut connection, &mut ctx).await?;
         }
-        Ok(())
     }
 }
 
