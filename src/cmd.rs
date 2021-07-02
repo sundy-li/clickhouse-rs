@@ -57,9 +57,7 @@ impl Cmd {
                 let session = connection.session.clone();
                 // connection.buffer.clear();
 
-                if let Err(err) = session.execute_query(ctx, connection).await {
-                    connection.write_error(&err).await?;
-                }
+                session.execute_query(ctx, connection).await?;
                 connection.write_end_of_stream().await?;
             }
             Packet::Data(_) => {
