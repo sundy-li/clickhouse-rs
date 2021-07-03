@@ -94,7 +94,7 @@ pub struct CHContext {
 }
 
 impl CHContext {
-    fn new(state: QueryState) -> Self {
+    pub fn new(state: QueryState) -> Self {
         Self {
             state,
             client_revision: 0,
