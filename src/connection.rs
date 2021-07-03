@@ -51,15 +51,16 @@ pub struct Connection {
 impl Connection {
     /// Create a new `Connection`, backed by `socket`. Read and write buffers
     /// are initialized.
-    pub fn new(stream: TcpStream, session: Arc<dyn ClickHouseSession>, tz: Tz) -> Connection {
-        Connection {
+    pub fn new(stream: TcpStream, session: Arc<dyn ClickHouseSession>, timezone: String) -> Result<Connection> {
+        let tz: Tz = timezone.parse()?;
+        Ok(Connection {
             stream: BufWriter::new(stream),
             buffer: BytesMut::with_capacity(4 * 1024),
             session,
             tz,
             with_stack_trace: false,
             compress: true,
-        }
+        })
     }
 
     /// Read a single `Packet` value from the underlying stream.

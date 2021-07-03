@@ -1,6 +1,5 @@
 use std::sync::Arc;
 
-use chrono_tz::Tz;
 use errors::Result;
 use log::debug;
 use tokio::net::TcpStream;
@@ -125,9 +124,9 @@ impl ClickHouseServer {
 
     async fn run(&mut self, session: Arc<dyn ClickHouseSession>, stream: TcpStream) -> Result<()> {
         debug!("Handle New session");
-        let tz: Tz = session.timezone().parse()?;
+        let tz = session.timezone().to_string();
         let mut ctx = CHContext::new(QueryState::default());
-        let mut connection = Connection::new(stream, session, tz);
+        let mut connection = Connection::new(stream, session, tz)?;
 
         loop {
             // signal.
