@@ -19,6 +19,19 @@ pub enum Packet {
     Data(Block)
 }
 
+#[derive(Debug)]
+pub enum Stage {
+    Default = 0,
+    InsertPrepare,
+    InsertStart,
+    EOS
+}
+impl Default for Stage {
+    fn default() -> Self {
+        Stage::Default
+    }
+}
+
 pub const DBMS_MIN_REVISION_WITH_CLIENT_INFO: u64 = 54032;
 pub const DBMS_MIN_REVISION_WITH_SERVER_TIMEZONE: u64 = 54058;
 pub const DBMS_MIN_REVISION_WITH_QUOTA_KEY_IN_CLIENT_INFO: u64 = 54060;
