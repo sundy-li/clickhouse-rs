@@ -1,12 +1,10 @@
 use std::sync::Arc;
-use std::sync::Mutex;
 
 use errors::Result;
 use log::debug;
 use protocols::Stage;
 use tokio::net::TcpStream;
 use tokio::sync::mpsc::Sender;
-use tokio_stream::wrappers::ReceiverStream;
 
 use crate::cmd::Cmd;
 use crate::connection::Connection;
@@ -64,11 +62,6 @@ pub trait ClickHouseSession: Send + Sync {
     }
 }
 
-pub struct BlockStreamWithHeader {
-    pub sender: Sender<Block>,
-    pub block: Block
-}
-
 #[derive(Default)]
 pub struct QueryState {
     pub query_id: String,
@@ -82,7 +75,7 @@ pub struct QueryState {
     /// Data was sent.
     pub sent_all_data: bool,
 
-    pub out: Option<BlockStreamWithHeader>
+    pub out: Option<Sender<Block>>
 }
 
 impl QueryState {

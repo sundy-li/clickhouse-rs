@@ -52,9 +52,8 @@ impl Cmd {
                 let session = connection.session.clone();
                 session.execute_query(ctx, connection).await?;
 
-                if let Some(out) = &ctx.state.out {
+                if let Some(_) = &ctx.state.out {
                     ctx.state.stage = Stage::InsertPrepare;
-                    connection.write_block(&out.block).await?;
                 } else {
                     connection.write_end_of_stream().await?;
                 }
@@ -77,7 +76,7 @@ impl Cmd {
                 } else {
                     if let Some(out) = &ctx.state.out {
                         // out.block_stream.
-                        out.sender.send(block).await.unwrap();
+                        out.send(block).await.unwrap();
                     }
                 }
             }

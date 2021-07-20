@@ -9,7 +9,6 @@ use clickhouse_srv::connection::Connection;
 use clickhouse_srv::errors::Result;
 use clickhouse_srv::types::Block;
 use clickhouse_srv::types::Progress;
-use clickhouse_srv::BlockStreamWithHeader;
 use clickhouse_srv::CHContext;
 use clickhouse_srv::ClickHouseServer;
 use futures::task::Context;
@@ -70,19 +69,17 @@ impl clickhouse_srv::ClickHouseSession for Session {
         // simple logic for insert
         if query.starts_with("INSERT") || query.starts_with("insert") {
             // ctx.state.out
-            let sample_block = Block::new().column("abc", (0..1).collect::<Vec<u32>>());
+            let sample_block = Block::new().column("abc", Vec::<u32>::new());
             let (sender, rec) = mpsc::channel(4);
-            let s = BlockStreamWithHeader {
-                sender,
-                block: sample_block
-            };
-            ctx.state.out = Some(s);
+            ctx.state.out = Some(sender);
+            connection.write_block(&sample_block).await?;
+
             tokio::spawn(async move {
                 let mut rows = 0;
                 let mut stream = ReceiverStream::new(rec);
                 while let Some(block) = stream.next().await {
                     rows += block.row_count();
-                    debug!(
+                    println!(
                         "got insert block: {:?}, total_rows: {}",
                         block.row_count(),
                         rows
