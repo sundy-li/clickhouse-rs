@@ -74,6 +74,7 @@ impl clickhouse_srv::ClickHouseSession for Session {
             ctx.state.out = Some(sender);
             connection.write_block(&sample_block).await?;
 
+            let sent_all_data = ctx.state.sent_all_data.clone();
             tokio::spawn(async move {
                 let mut rows = 0;
                 let mut stream = ReceiverStream::new(rec);
@@ -85,6 +86,7 @@ impl clickhouse_srv::ClickHouseSession for Session {
                         rows
                     );
                 }
+                sent_all_data.notify_one();
             });
             return Ok(());
         }

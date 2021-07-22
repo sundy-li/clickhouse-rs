@@ -23,7 +23,7 @@ pub enum Packet {
 pub enum Stage {
     Default = 0,
     InsertPrepare,
-    InsertStart,
+    InsertStarted,
     EOS
 }
 impl Default for Stage {

@@ -62,14 +62,16 @@ impl Cmd {
                 if block.is_empty() {
                     match ctx.state.stage {
                         Stage::InsertPrepare => {
-                            ctx.state.stage = Stage::InsertStart;
+                            ctx.state.stage = Stage::InsertStarted;
                         }
-                        Stage::InsertStart => {
-                            ctx.state.stage = Stage::Default;
-                            // that mean all blocks has been sent
+                        Stage::InsertStarted => {
+                            // reset will reset the out, so the outer stream will break
                             ctx.state.reset();
-                            debug!("finish insert");
+
+                            ctx.state.sent_all_data.notified().await;
+                            // wait stream finished
                             connection.write_end_of_stream().await?;
+                            ctx.state.stage = Stage::Default;
                         }
                         _ => {}
                     }

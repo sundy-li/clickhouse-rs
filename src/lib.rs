@@ -5,6 +5,7 @@ use log::debug;
 use protocols::Stage;
 use tokio::net::TcpStream;
 use tokio::sync::mpsc::Sender;
+use tokio::sync::Notify;
 
 use crate::cmd::Cmd;
 use crate::connection::Connection;
@@ -72,9 +73,9 @@ pub struct QueryState {
     pub is_connection_closed: bool,
     /// empty or not
     pub is_empty: bool,
-    /// Data was sent.
-    pub sent_all_data: bool,
 
+    /// Data was sent.
+    pub sent_all_data: Arc<Notify>,
     pub out: Option<Sender<Block>>
 }
 
@@ -84,7 +85,6 @@ impl QueryState {
         self.is_cancelled = false;
         self.is_connection_closed = false;
         self.is_empty = false;
-        self.sent_all_data = false;
         self.out = None;
     }
 }
