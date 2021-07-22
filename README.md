@@ -77,7 +77,8 @@ impl clickhouse_srv::ClickHouseSession for Session {
         };
 
         while let Some(block) = clickhouse_stream.next().await {
-            connection.write_block(block.unwrap()).await?;
+            let block = block?;
+            connection.write_block(&block).await?;
 
             if self.last_progress_send.elapsed() >= Duration::from_millis(10) {
                 let progress = self.get_progress();

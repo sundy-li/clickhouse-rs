@@ -2,7 +2,9 @@ use std::sync::Arc;
 
 use errors::Result;
 use log::debug;
+use protocols::Stage;
 use tokio::net::TcpStream;
+use tokio::sync::mpsc::Sender;
 
 use crate::cmd::Cmd;
 use crate::connection::Connection;
@@ -60,10 +62,10 @@ pub trait ClickHouseSession: Send + Sync {
     }
 }
 
-#[derive(Default, Clone)]
+#[derive(Default)]
 pub struct QueryState {
     pub query_id: String,
-    pub stage: u64,
+    pub stage: Stage,
     pub compression: u64,
     pub query: String,
     pub is_cancelled: bool,
@@ -72,24 +74,26 @@ pub struct QueryState {
     pub is_empty: bool,
     /// Data was sent.
     pub sent_all_data: bool,
+
+    pub out: Option<Sender<Block>>
 }
 
 impl QueryState {
     fn reset(&mut self) {
-        self.stage = 0;
+        self.stage = Stage::Default;
         self.is_cancelled = false;
         self.is_connection_closed = false;
         self.is_empty = false;
         self.sent_all_data = false;
+        self.out = None;
     }
 }
 
-#[derive(Clone)]
 pub struct CHContext {
     pub state: QueryState,
 
     pub client_revision: u64,
-    pub hello: Option<HelloRequest>,
+    pub hello: Option<HelloRequest>
 }
 
 impl CHContext {
@@ -97,7 +101,7 @@ impl CHContext {
         Self {
             state,
             client_revision: 0,
-            hello: None,
+            hello: None
         }
     }
 }
@@ -109,7 +113,7 @@ pub struct ClickHouseServer {}
 impl ClickHouseServer {
     pub async fn run_on_stream(
         session: Arc<dyn ClickHouseSession>,
-        stream: TcpStream,
+        stream: TcpStream
     ) -> Result<()> {
         ClickHouseServer::run_on(session, stream.into()).await
     }
@@ -137,12 +141,17 @@ impl ClickHouseServer {
             let packet = match maybe_packet {
                 Ok(Some(packet)) => packet,
                 Err(e) => {
+                    ctx.state.reset();
                     connection.write_error(&e).await?;
                     return Err(e);
                 }
-                Ok(None) => return Ok(()),
+                Ok(None) => {
+                    debug!("{:?}", "none data reset");
+                    ctx.state.reset();
+                    return Ok(());
+                }
             };
-            let mut cmd = Cmd::create(packet);
+            let cmd = Cmd::create(packet);
             cmd.apply(&mut connection, &mut ctx).await?;
         }
     }

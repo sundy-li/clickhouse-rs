@@ -45,13 +45,17 @@ pub struct Connection {
     // The buffer for reading frames.
     tz: Tz,
     with_stack_trace: bool,
-    compress: bool,
+    compress: bool
 }
 
 impl Connection {
     /// Create a new `Connection`, backed by `socket`. Read and write buffers
     /// are initialized.
-    pub fn new(stream: TcpStream, session: Arc<dyn ClickHouseSession>, timezone: String) -> Result<Connection> {
+    pub fn new(
+        stream: TcpStream,
+        session: Arc<dyn ClickHouseSession>,
+        timezone: String
+    ) -> Result<Connection> {
         let tz: Tz = timezone.parse()?;
         Ok(Connection {
             stream: BufWriter::new(stream),
@@ -59,7 +63,7 @@ impl Connection {
             session,
             tz,
             with_stack_trace: false,
-            compress: true,
+            compress: true
         })
     }
 
@@ -143,11 +147,11 @@ impl Connection {
             // An error was encountered while parsing the frame. The connection
             // is now in an invalid state. Returning `Err` from here will result
             // in the connection being closed.
-            Err(e) => Err(e.into()),
+            Err(e) => Err(e.into())
         }
     }
 
-    pub async fn write_block(&mut self, block: Block) -> Result<()> {
+    pub async fn write_block(&mut self, block: &Block) -> Result<()> {
         let mut encoder = Encoder::new();
         block.send_server_data(&mut encoder, self.compress);
         self.stream.write_all(&encoder.get_buffer()).await?;

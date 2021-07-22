@@ -512,11 +512,21 @@ mod test {
     #[test]
     fn test_column_and_rows() {
         let block = Block::<Simple>::new()
-            .column("hello_id", vec![5_u32, 6_u32])
+            .column("hello_id", vec![5_u64, 6])
             .column("value", vec!["lol", "zuz"]);
 
         assert_eq!(block.column_count(), 2);
         assert_eq!(block.row_count(), 2);
+    }
+
+    #[test]
+    fn test_from_sql() {
+        let block = Block::<Simple>::new()
+            .column("hello_id", vec![5_u64, 6])
+            .column("value", vec!["lol", "zuz"]);
+
+        let v: Result<u64> = block.get(0, "hello_id");
+        assert_eq!(v.unwrap(), 5);
     }
 
     #[test]

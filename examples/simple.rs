@@ -18,6 +18,8 @@ use futures::StreamExt;
 use log::debug;
 use log::info;
 use tokio::net::TcpListener;
+use tokio::sync::mpsc;
+use tokio_stream::wrappers::ReceiverStream;
 
 extern crate clickhouse_srv;
 
@@ -60,9 +62,33 @@ struct Session {
 impl clickhouse_srv::ClickHouseSession for Session {
     async fn execute_query(&self, ctx: &mut CHContext, connection: &mut Connection) -> Result<()> {
         let query = ctx.state.query.clone();
-        info!("Receive query {}", query);
+        debug!("Receive query {}", query);
 
         let start = Instant::now();
+
+        // simple logic for insert
+        if query.starts_with("INSERT") || query.starts_with("insert") {
+            // ctx.state.out
+            let sample_block = Block::new().column("abc", Vec::<u32>::new());
+            let (sender, rec) = mpsc::channel(4);
+            ctx.state.out = Some(sender);
+            connection.write_block(&sample_block).await?;
+
+            tokio::spawn(async move {
+                let mut rows = 0;
+                let mut stream = ReceiverStream::new(rec);
+                while let Some(block) = stream.next().await {
+                    rows += block.row_count();
+                    println!(
+                        "got insert block: {:?}, total_rows: {}",
+                        block.row_count(),
+                        rows
+                    );
+                }
+            });
+            return Ok(());
+        }
+
         let mut clickhouse_stream = SimpleBlockStream {
             idx: 0,
             start: 10,
@@ -71,7 +97,8 @@ impl clickhouse_srv::ClickHouseSession for Session {
         };
 
         while let Some(block) = clickhouse_stream.next().await {
-            connection.write_block(block.unwrap()).await?;
+            let block = block?;
+            connection.write_block(&block).await?;
 
             if self.last_progress_send.elapsed() >= Duration::from_millis(10) {
                 let progress = self.get_progress();

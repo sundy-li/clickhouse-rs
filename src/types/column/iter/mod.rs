@@ -999,7 +999,11 @@ mod test {
 
         let columns = block.columns()[0].iter::<u32>().unwrap();
         let actual: Vec<_> = columns.collect();
+        assert_eq!(actual, vec![&1_u32, &2, &3, &4, &5]);
 
-        assert_eq!(actual, vec![&1_u32, &2, &3, &4, &5])
+        let null_u32 = Block::new().column("?", vec![Some(3_u32), Some(4), None]);
+        let columns = null_u32.columns()[0].iter::<Option<u32>>().unwrap();
+        let actual: Vec<_> = columns.collect();
+        assert_eq!(actual, vec![Some(&3_u32), Some(&4), None]);
     }
 }
