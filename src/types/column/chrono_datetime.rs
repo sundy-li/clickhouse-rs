@@ -85,7 +85,10 @@ impl ColumnData for ChronoDateTimeColumnData {
     }
 
     fn save(&self, _encoder: &mut Encoder, _start: usize, _end: usize) {
-        unimplemented!()
+        for datetime in &self.data[_start.._end] {
+            let value = datetime.timestamp() as u32;
+            _encoder.write(value);
+        }
     }
 
     fn len(&self) -> usize {
