@@ -50,7 +50,9 @@ impl ColumnData for DateTime64ColumnData {
     }
 
     fn save(&self, _encoder: &mut Encoder, _start: usize, _end: usize) {
-        unimplemented!()
+        for i in _start.._end {
+            _encoder.write(self.data.at(i));
+        }
     }
 
     fn len(&self) -> usize {
